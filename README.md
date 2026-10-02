@@ -11,6 +11,7 @@ Requires [uv](https://docs.astral.sh/uv/).
 ```sh
 uv sync
 uv run pipeline     # fetch only new data from each source into data/
+uv run backtest     # walk-forward backtest + nowcast of unpublished months
 uv run pytest       # offline tests
 ```
 

@@ -7,10 +7,12 @@ dependencies = [
     "pandas>=2.2",
     "pyarrow>=17",
     "requests>=2.32",
+    "scikit-learn>=1.9.1",
 ]
 
 [project.scripts]
 pipeline = "pipeline.__main__:main"
+backtest = "pipeline.model:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]

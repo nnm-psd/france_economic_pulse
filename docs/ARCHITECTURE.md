@@ -2,7 +2,7 @@
 
 A public website that tracks the French economy using open, regularly updated data. It publishes a machine-learning **nowcast** of French industrial production: an estimate made before INSEE publishes the official figure. The data refreshes automatically in the cloud. No one downloads data by hand.
 
-Status: phase 1 (data pipeline) done; phase 2 next. Last updated: 2026-10-03.
+Status: phases 1 (data pipeline) and 2 (model) done; phase 3 (website) next. Last updated: 2026-10-03.
 Repository: https://github.com/nnm-psd/france_economic_pulse (public). Languages: French and English.
 
 ## 1. Overview
@@ -66,7 +66,7 @@ Heating makes French electricity demand very sensitive to temperature, so a cold
 
 ### D5. Language and tools: Python, managed with `uv`
 
-- **Choice:** Python 3.12 with `requests`, `pandas`, `pyarrow`, `scikit-learn` and `statsmodels`. `uv` manages the environment and lockfile.
+- **Choice:** Python 3.12 with `requests`, `pandas`, `pyarrow` and `scikit-learn` (the weather regression is a NumPy least-squares fit, so `statsmodels` wasn't needed). `uv` manages the environment and lockfile.
 - **Why:** That's the standard ML stack, and the lockfile means a CI run uses exactly the same versions as your machine. `uv` installs fast enough to matter in a daily job.
 - **Rejected:** Poetry and conda, which are slower in CI with no benefit here. Orchestrators such as Airflow and Prefect: four sources and one model don't need them.
 
@@ -115,7 +115,40 @@ Heating makes French electricity demand very sensitive to temperature, so a cold
 
 ### D12. Only features available on the nowcast date
 
-Each feature is aligned to the date it was actually published, not the month it describes. For example, ECB yields arrive about one month late, so the nowcast for month *t* can't use the yield for month *t*.
+Each feature is aligned to the date it was actually published, not the month it describes. The nowcast for month *t* runs at the start of month *t+1*:
+
+| Data | Known up to | Features (month *t* row) |
+|---|---|---|
+| Industrial production (INSEE, ~40 days late) | *t−2* | `y_lag2`: latest published growth |
+| Electricity, weather-corrected (D4) | *t* | `elec`, `elec_lag1`: growth of the monthly mean residual |
+| Business climate (INSEE, published late in the month) | *t* | `climate` (level − 100), `climate_chg` |
+| Insolvency openings (BODACC) | *t* | `insolv_yoy`: year-on-year log change (removes seasonality) |
+| 10-year spread France–Germany (ECB, ~1 month late) | *t−1* | `spread_lag1`, `spread_chg_lag1` (basis points) |
+
+The weather-correction coefficients are refitted at each backtest step using only days before the nowcast date. The same model also nowcasts month *t−1* when INSEE hasn't published it yet; that's conservative, because it ignores the extra month of known IPI.
+
+### D20. COVID months are excluded from training, not from scoring
+
+- **Choice:** March–July 2020 are dropped from every training set, but still counted in the "all months" score.
+- **Why:** Production fell 25% and then rebounded. Trained on those months, the models learned pandemic-only patterns: business-climate change correlates 0.72 with growth with COVID included and 0.03 without. Those patterns made normal-month nowcasts worse: ridge was 24% worse than AR(1) before this change and 5% better after.
+- **Not done:** dropping weak features. Their weak correlations were measured over the full sample, test period included, so selecting on them would be look-ahead bias. Ridge's regularization handles them.
+
+### D21. Phase 2 results (2026-10-03)
+
+Walk-forward backtest, January 2016 to July 2026 (127 months). Target: monthly growth of IPI, total industry (%). Data: latest revised vintage, so these scores are **optimistic** (D8).
+
+| Excl. Mar–Jul 2020 | RMSE | vs AR(1) | Diebold–Mariano p (one-sided) | Right direction |
+|---|---|---|---|---|
+| AR(1) benchmark | 1.33 | 1.00 | — | 48% |
+| **Ridge (published model)** | **1.26** | **0.95** | **0.07** | **59%** |
+| Gradient boosting | 1.35 | 1.02 | 0.63 | 54% |
+
+Over all months (COVID included), errors are dominated by 2020 and no model is meaningfully better (RMSE 3.6–3.7).
+
+- **Published model: ridge.** Gradient boosting doesn't beat it, so per D10 it is kept only in the backtest table, for transparency.
+- **Honest claim for the site:** "Slightly more accurate than a naive benchmark and right on direction about 6 times in 10; the gain is suggestive, not statistically proven." Monthly IPI growth is mostly noise (standard deviation 1.3% in normal months).
+- **What carries signal:** weather-corrected electricity (correlation 0.33 with monthly growth in normal months). Business climate, insolvencies and the spread are near zero at a monthly horizon: they move slowly.
+- **Candidates for improvement,** each to be tested one at a time against this baseline: French public-holiday dummies in the weather correction; electricity consumption of large industrial users only (check that RTE publishes it openly); a 3-month growth target, which is less noisy and common in central-bank nowcasts.
 
 ## 6. Website
 
@@ -215,7 +248,7 @@ French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Lic
 | Phase | Deliverable | Done when |
 |---|---|---|
 | 1 ✅ | Fetch modules for RTE, INSEE, ECB and BODACC, plus a temperature source | `uv run pipeline` fetches only new rows twice in a row; tests pass. Verified 2026-10-03: run 2 added 0 rows and rewrote no files; 7 tests pass. |
-| 2 | Weather correction, features, AR(1) and ridge backtest | Walk-forward RMSE reported against AR(1); assumptions written up in this file |
+| 2 ✅ | Weather correction, features, AR(1) and ridge backtest | Walk-forward RMSE reported against AR(1); assumptions written up in this file. Done 2026-10-03: `uv run backtest`, results in D21; 9 tests pass. |
 | 3 | Astro site, version 1 (3 pages in French and English) | Audits in D17 pass locally in both languages |
 | 4 | Scheduled GitHub Actions run and Pages deploy | Two scheduled runs in a row succeed and the site updates |
 | 5 | Additions: GDELT tone, daily spread (Banque de France key), GDP target, custom domain | One at a time, each only if it improves the nowcast or the site |
