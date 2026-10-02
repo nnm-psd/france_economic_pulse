@@ -2,7 +2,7 @@
 
 A public website that tracks the French economy using open, regularly updated data. It publishes a machine-learning **nowcast** of French industrial production: an estimate made before INSEE publishes the official figure. The data refreshes automatically in the cloud. No one downloads data by hand.
 
-Status: design approved, nothing built yet. Last updated: 2026-10-03.
+Status: phase 1 (data pipeline) done; phase 2 next. Last updated: 2026-10-03.
 Repository: https://github.com/nnm-psd/france_economic_pulse (public). Languages: French and English.
 
 ## 1. Overview
@@ -46,8 +46,8 @@ Every source below was tested on 2026-10-03: it returned HTTP 200 with no API ke
 | **RTE éCO2mix** (ODRE) | National electricity consumption | `odre.opendatasoft.com/api/explore/v2.1/catalog/datasets/{eco2mix-national-cons-def, eco2mix-national-tr}/records`: the consolidated dataset covers 2012 to 2026-06-30; the real-time one continues from 2026-07-01 | 15 min / near real time | Yes (`*`) | Main real-time signal |
 | **INSEE BDM** (SDMX) | IPI (`IPI-2021`), business climate (`CLIMAT-AFFAIRES`) | `bdm.insee.fr/series/sdmx/data/...` | Monthly | Yes | Target, plus survey features |
 | **ECB Data Portal** | 10-year yields, France and Germany (`IRS/M.{FR,DE}.L.L40.CI.0000.EUR.N.Z`) | `data-api.ecb.europa.eu/service/data/...` | Monthly / about 1 month lag | Yes (`*`) | France–Germany spread as a risk feature |
-| **BODACC** (DILA) | Insolvency notices ("Procédures collectives") | `bodacc-datadila.opendatasoft.com/api/explore/v2.1/...` | Daily | Yes (`*`) | Business stress feature |
-| **Temperature** | Daily national temperature | To choose in phase 1: Météo-France open data or Open-Meteo | Daily | — | Removes the weather effect from electricity use |
+| **BODACC** (DILA) | Daily count of insolvency openings: initial "Procédures collectives" notices whose judgment mentions "ouverture" (safeguard, receivership, liquidation), since 2008 | `bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/exports/csv` | Daily | Yes (`*`) | Business stress feature |
+| **Open-Meteo** (CC BY 4.0) | Daily mean temperature: population-weighted mean of 8 large cities, since 2012 | `archive-api.open-meteo.com/v1/archive` | Daily / ~1 day | — | Removes the weather effect from electricity use (D4). Chosen over Météo-France station files: one request, back to 2012. |
 
 ### D3. Data that is deferred or excluded
 
@@ -74,13 +74,16 @@ Heating makes French electricity demand very sensitive to temperature, so a cold
 
 - **Choice:** Each source module reads the last date it has stored and asks the API only for data after it.
 - **Why:** Runs stay fast, the job is a polite API user, and history survives even if a provider later drops old data.
-- **Shape:** One file per source in `pipeline/sources/`, each exposing `fetch(since: date) -> DataFrame`. There is no shared base class (four functions don't need one).
+- **Shape:** One file per source in `pipeline/sources/`, each exposing `parse(text)` (tested offline), `fetch(since)` and a few settings. There is no shared base class.
+- **Re-fetch window (OVERLAP):** RTE 180 days (consolidated data lands ~3 months late), BODACC 14 days, temperature 10 days. INSEE and ECB are re-fetched in full every run (small, and revised).
+- **INSEE series codes:** industrial production `010768261` (total industry, NAF BE, seasonally and working-day adjusted, base 2021: the target), `010768307` (manufacturing), business climate `001565530`.
 - **RTE has two datasets:** the history comes from `cons-def` (loaded once) and new data from `tr`. RTE later moves months from `tr` into `cons-def` with final values, so re-read the last few months from `cons-def` every time it grows.
 
-### D7. Storage: Parquet files committed to the repo, one file per month
+### D7. Storage: Parquet files committed to the repo, split per source
 
-- **Choice:** `data/raw/<source>/<YYYY-MM>.parquet`.
-- **Why:** No database or cloud bucket to run, and every change has a history in git. Splitting by month means a daily run rewrites only the current month's file, so the repo grows slowly. RTE 15-minute data since 2012 is only a few MB.
+- **Choice:** `data/raw/<source>/<partition>.parquet`, with each source choosing its split: RTE monthly (`2026-10.parquet`), BODACC and temperature yearly, INSEE and ECB a single `all.parquet`. A file is rewritten only when its content changes.
+- **Why:** No database or cloud bucket to run, and every change has a history in git. Splitting by month means a daily run rewrites only the current month's file, so the repo grows slowly. The full history is ~4.5 MB in 215 files (measured 2026-10-03). Monthly files for every source produced 1,669 files, mostly one-row INSEE months, which is why each source sets its own split.
+- **RTE resolution:** kept at 30-minute steps (the consolidated dataset's resolution); the real-time dataset's 15-minute points are dropped so both datasets share keys. Consumption is a power (MW), so a daily mean is valid at either resolution.
 - **Ceiling:** if the repo passes about 1 GB, move `data/` to object storage such as Cloudflare R2 (free tier) and keep only the published JSON in git.
 
 ### D8. Archive each release as published (real-time vintages)
@@ -205,13 +208,13 @@ france_economic_pulse/
 
 ## 9. Licensing and attribution
 
-French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Licence Ouverte / Etalab 2.0: reuse is allowed if the source and last update date are shown. ECB data may be reused with the source cited. Each chart shows its source and update date, and the methodology page lists every licence. **Before launch:** check each provider's licence page again.
+French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Licence Ouverte / Etalab 2.0: reuse is allowed if the source and last update date are shown. ECB data may be reused with the source cited. Open-Meteo data is CC BY 4.0 (attribution required), and its free tier is for non-commercial use; this site qualifies. Each chart shows its source and update date, and the methodology page lists every licence. **Before launch:** check each provider's licence page again.
 
 ## 10. Build plan
 
 | Phase | Deliverable | Done when |
 |---|---|---|
-| 1 | Fetch modules for RTE, INSEE, ECB and BODACC, plus a temperature source | `uv run pipeline` fetches only new rows twice in a row; tests pass |
+| 1 ✅ | Fetch modules for RTE, INSEE, ECB and BODACC, plus a temperature source | `uv run pipeline` fetches only new rows twice in a row; tests pass. Verified 2026-10-03: run 2 added 0 rows and rewrote no files; 7 tests pass. |
 | 2 | Weather correction, features, AR(1) and ridge backtest | Walk-forward RMSE reported against AR(1); assumptions written up in this file |
 | 3 | Astro site, version 1 (3 pages in French and English) | Audits in D17 pass locally in both languages |
 | 4 | Scheduled GitHub Actions run and Pages deploy | Two scheduled runs in a row succeed and the site updates |
