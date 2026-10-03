@@ -54,3 +54,18 @@ def test_weather_weighted_mean_drops_incomplete_days():
     locations[-1] = day([10.0, None])
     df = weather.parse(json.dumps(locations))
     assert df.astype(str).values.tolist() == [["2026-10-01", "10.0"]]
+
+
+def test_gdp_quarterly_periods():
+    from pipeline.sources import gdp
+
+    xml = (
+        '<message:StructureSpecificData xmlns:message="m"><message:DataSet>'
+        '<Series IDBANK="011794860"><Obs TIME_PERIOD="2026-Q2" OBS_VALUE="664746"/>'
+        '<Obs TIME_PERIOD="2026-Q1" OBS_VALUE="664510"/></Series>'
+        "</message:DataSet></message:StructureSpecificData>"
+    )
+    assert gdp.parse(xml).astype(str).values.tolist() == [
+        ["2026-01-01", "gdp", "664510.0"],
+        ["2026-04-01", "gdp", "664746.0"],
+    ]

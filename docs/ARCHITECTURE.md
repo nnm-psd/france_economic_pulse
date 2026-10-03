@@ -297,6 +297,24 @@ Modelled on the New York Fed Staff Nowcast's signature feature: show how each ne
 - **Not reconstructed backwards:** the history starts on 2026-10-03, the first archived day. Rebuilding earlier days would need the data as it stood then, which wasn't kept.
 - **Comparison with official forecasts: not done.** INSEE (*Note de conjoncture*) and the Banque de France forecast GDP, not monthly industrial production, so a fair comparison needs a GDP target first (phase 5).
 
+### D31. Quarterly GDP nowcast: built and tested, not published (2026-10-03)
+
+- **Target:** real GDP growth, q/q: y_q = 100·ln(GDP_q / GDP_{q−1}). INSEE series `011794860` (quarterly accounts, base 2020, chained volumes, SA-WDA), 1949Q1–2026Q2. New source `pipeline/sources/gdp.py` (quarterly periods parsed as quarter starts; `MAX_AGE` 220 days, because the latest quarter is up to ~7 months old between releases). Each release is archived in `data/snapshots/gdp/` (D8), so a live record is possible later.
+- **Release timing:** INSEE's first estimate comes at the end of the first month after the quarter (within 30 days; [INSEE methodology](https://www.insee.fr/fr/statistiques/documentation/Comptes_methodo.pdf)). Q3 2026 is expected around 30 October 2026.
+- **Bridge equation** (`pipeline/gdp_model.py`, `uv run gdp-backtest`): quarterly industrial production growth (mean of the quarter's 3 months, log change). Unpublished months are filled by the monthly nowcast, so electricity, surveys and rates reach GDP through it.
+- **Timing-honest backtest,** 2016Q1–2026Q2, walk-forward, as known at INSEE's first GDP estimate: months 1–2 of industrial production published, month 3 replaced by the monthly model's own walk-forward estimate. Benchmarks: historical mean and AR(1) on GDP.
+
+| RMSE, normal quarters | Mean | AR(1) | Classic bridge (industrial production only) | Ridge (industrial production, climate, change, lagged GDP) |
+|---|---|---|---|---|
+| Excluding 2020Q1–2021Q4 (34 quarters) | 0.336 | **0.313** | 0.317 (p = 0.54 vs AR) | 0.334 (p = 0.74) |
+
+- **First specification (ridge, 4 inputs) failed,** including under the original pandemic window (2020Q1–2021Q1: ridge 0.510 vs AR 0.518, p = 0.41). That window was then widened to 2020Q1–2021Q4, after seeing the 2021Q3 reopening miss (actual +2.9%, estimate +0.6%), on the grounds that lockdowns ran until May 2021. Both results are recorded here because the change was made with hindsight.
+- **Why it fails (diagnostics, not used to choose a model):**
+  - Since 2016, INSEE's business climate barely tracks quarterly GDP (correlation 0.08–0.17, against ~0.5 for 1990–2019), so the ridge adds noise.
+  - Quarterly industrial production does track it (0.61), and the classic bridge **with the actual third month** reaches RMSE 0.275, clearly better than AR. Replacing that month with our monthly estimate erases the gain.
+  - **The bottleneck is the monthly nowcast**, not the bridge.
+- **Decision under D10:** no GDP model beats AR(1) in the real-time test, so **no GDP nowcast is published on the site**. The source, archive and backtest stay in the pipeline (cheap), so improvements can be measured. The owner chooses between the options listed under open questions.
+
 ### D30. Downloads and citation
 
 - **CSV:** `publish` writes one file per series to `site/public/data/csv/` (`ipi`, `electricity`, `climate`, `insolvencies`, `spread`, `backtest`, `nowcasts`). Each chart links its file ("Download as CSV"), under CC BY 4.0 (D28).
@@ -370,7 +388,7 @@ French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Lic
 | 2 ✅ | Weather correction, features, AR(1) and ridge backtest | Walk-forward RMSE reported against AR(1); assumptions written up in this file. Done 2026-10-03: `uv run backtest`, results in D21; 9 tests pass. |
 | 3 ✅ | Astro site, version 1 (3 pages in French and English) | Audits in D17 pass locally in both languages. Done 2026-10-03: see D17 results. |
 | 4 ⏳ | Scheduled GitHub Actions run and Pages deploy | Two scheduled runs in a row succeed and the site updates. Pages enabled and the site live on 2026-10-03; push and manual runs deploy successfully. Waiting for the first two 05:00 UTC scheduled runs. |
-| 5 | Additions: quarterly GDP target (then a comparison with INSEE and Banque de France forecasts), GDELT tone, daily spread (Banque de France key), real-time backtest on archived releases once a year of them exists | One at a time, each only if it improves the nowcast or the site |
+| 5 | Additions: GDP nowcast (built and backtested, not published: does not beat AR(1), D31), GDELT tone, daily spread (Banque de France key), real-time backtest on archived releases once a year of them exists | One at a time, each only if it improves the nowcast or the site |
 
 ## 11. Settled decisions
 
@@ -384,3 +402,8 @@ French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Lic
 | Model | Keep the published model; trade-off explained on the Model page (D24) |
 
 Still open: analytics (a cookie-free service such as GoatCounter needs an account) and a 3-month target (changes what the site publishes).
+
+GDP nowcast (D31), owner to choose:
+1. Keep it unpublished until it beats AR(1). The monthly nowcast is the bottleneck, so improving it helps both.
+2. Publish it as "experimental", with the benchmark result shown prominently.
+3. Add services data (e.g. INSEE's services and retail surveys) and retest. Services are ~80% of GDP, and industrial data can't see them.

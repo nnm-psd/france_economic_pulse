@@ -25,16 +25,18 @@ SERIES = {
 TARGET = ["ipi_industry", "ipi_manufacturing"]
 
 
-def parse(xml: str) -> pd.DataFrame:
+def parse(xml: str, series_names: dict[str, str] = SERIES) -> pd.DataFrame:
+    """INSEE SDMX to (date, series, value). Monthly periods ("2026-07") and quarterly ones ("2026-Q2")
+    are both dated at the start of their period."""
     rows = [
-        (obs.get("TIME_PERIOD"), SERIES[series.get("IDBANK")], float(obs.get("OBS_VALUE")))
+        (obs.get("TIME_PERIOD"), series_names[series.get("IDBANK")], float(obs.get("OBS_VALUE")))
         for series in ElementTree.fromstring(xml).iter()
         if series.tag.endswith("Series")
         for obs in series
         if obs.get("OBS_VALUE") not in (None, "NaN")
     ]
     df = pd.DataFrame(rows, columns=["date", "series", "value"])
-    df["date"] = pd.to_datetime(df["date"], format="%Y-%m")
+    df["date"] = pd.PeriodIndex(df["date"].str.replace("-Q", "Q"), freq="Q" if df["date"].str.contains("Q").any() else "M").to_timestamp()
     return df.sort_values(KEY).reset_index(drop=True)
 
 

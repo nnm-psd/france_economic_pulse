@@ -7,9 +7,9 @@ import sys
 from datetime import datetime
 
 from . import store
-from .sources import bodacc, ecb, insee, rte, weather
+from .sources import bodacc, ecb, gdp, insee, rte, weather
 
-SOURCES = [rte, insee, ecb, bodacc, weather]
+SOURCES = [rte, insee, gdp, ecb, bodacc, weather]
 
 
 def check(src, new, first_run: bool) -> None:
@@ -27,6 +27,8 @@ def update(src) -> str:
     added, updated = store.save(src.NAME, new, src.KEY, src.PARTITION)
     if src is insee and store.snapshot("ipi", new[new["series"].isin(insee.TARGET)]):
         print("  ipi: new release archived")
+    if src is gdp and store.snapshot("gdp", new):
+        print("  gdp: new release archived")
     stored = store.load(src.NAME)
     # With several series, the stalest one decides.
     latest = stored.groupby("series")["date"].max().min() if "series" in stored else stored["date"].max()

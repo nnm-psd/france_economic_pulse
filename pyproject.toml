@@ -16,6 +16,7 @@ pipeline = "pipeline.__main__:main"
 backtest = "pipeline.model:main"
 publish = "pipeline.publish:main"
 experiments = "pipeline.experiments:main"
+gdp-backtest = "pipeline.gdp_model:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]

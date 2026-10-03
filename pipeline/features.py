@@ -12,7 +12,7 @@ from dateutil.easter import easter
 
 from . import store
 
-SOURCES = ["rte", "weather", "insee", "ecb", "bodacc"]
+SOURCES = ["rte", "weather", "insee", "ecb", "bodacc", "gdp"]
 HDD_BASE, CDD_BASE = 15.0, 20.0  # °C: heating below, cooling above
 MIN_DAYS = 25  # a month needs this many complete days of electricity data
 
