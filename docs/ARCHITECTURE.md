@@ -2,7 +2,7 @@
 
 A public website that tracks the French economy using open, regularly updated data. It publishes a machine-learning **nowcast** of French industrial production: an estimate made before INSEE publishes the official figure. The data refreshes automatically in the cloud. No one downloads data by hand.
 
-Status: phases 1–3 done; phase 4 (automation and deploy) written, waiting for GitHub Pages to be enabled and two scheduled runs to pass. Last updated: 2026-10-03.
+Status: phases 1–3 done and live at https://nnm-psd.github.io/france_economic_pulse/ since 2026-10-03; phase 4 deploys work (push and manual runs succeed), waiting for two scheduled runs in a row. Last updated: 2026-10-03.
 Repository: https://github.com/nnm-psd/france_economic_pulse (public). Languages: French and English.
 
 ## 1. Overview
@@ -304,7 +304,7 @@ French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Lic
 | 1 ✅ | Fetch modules for RTE, INSEE, ECB and BODACC, plus a temperature source | `uv run pipeline` fetches only new rows twice in a row; tests pass. Verified 2026-10-03: run 2 added 0 rows and rewrote no files; 7 tests pass. |
 | 2 ✅ | Weather correction, features, AR(1) and ridge backtest | Walk-forward RMSE reported against AR(1); assumptions written up in this file. Done 2026-10-03: `uv run backtest`, results in D21; 9 tests pass. |
 | 3 ✅ | Astro site, version 1 (3 pages in French and English) | Audits in D17 pass locally in both languages. Done 2026-10-03: see D17 results. |
-| 4 ⏳ | Scheduled GitHub Actions run and Pages deploy | Two scheduled runs in a row succeed and the site updates. Workflow written and checked locally 2026-10-03 (valid YAML, `uv` lock current, Linux build binaries present in `package-lock.json`); waiting for Pages to be enabled. |
+| 4 ⏳ | Scheduled GitHub Actions run and Pages deploy | Two scheduled runs in a row succeed and the site updates. Pages enabled and the site live on 2026-10-03; push and manual runs deploy successfully. Waiting for the first two 05:00 UTC scheduled runs. |
 | 5 | Additions: GDELT tone, daily spread (Banque de France key), GDP target, custom domain | One at a time, each only if it improves the nowcast or the site |
 
 ## 11. Settled decisions
