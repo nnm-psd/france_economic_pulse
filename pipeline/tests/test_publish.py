@@ -41,3 +41,22 @@ def test_expected_release_follows_insee_rule():
     assert publish.expected_release(pd.Period("2026-07", "M")) == "2026-09-09"  # 40 days: the actual July release
     assert publish.expected_release(pd.Period("2026-08", "M")) == "2026-10-05"  # 35 days
     assert publish.expected_release(pd.Period("2026-02", "M")) == "2026-04-06"  # 4 April is a Saturday: Monday
+
+
+def test_evolution_splits_each_change_into_news_and_reestimation_exactly():
+    from pipeline.features import FEATURES
+
+    days = pd.to_datetime(["2026-10-03", "2026-10-04"])
+    x0 = {f"x_{c}": 1.0 for c in FEATURES}
+    x1 = {**x0, "x_elec": 3.0}  # new electricity data on day 2
+    log = pd.DataFrame([
+        {"made": days[0], "month": "2026-09", "g": -0.44, "lo": -2.0, "hi": 1.0, "pred": -0.44, **x0},
+        {"made": days[1], "month": "2026-09", "g": -0.10, "lo": -1.7, "hi": 1.4, "pred": -0.10, **x1},
+    ])
+    params = pd.DataFrame([{"made": d, "intercept": 0.0, **{f"{k}_{c}": v for c in FEATURES for k, v in
+                           (("mean", 0.0), ("scale", 2.0), ("coef", 0.25))}} for d in days])
+    [month] = publish.evolution(log, params, [])
+    [change] = month["changes"]
+    assert change["news"]["electricity"] == 0.25 * (3.0 - 1.0) / 2.0  # weight * change / scale = 0.25
+    assert abs(change["total"] - (sum(change["news"].values()) + change["refit"])) < 1e-9
+    assert change["refit"] == round(0.34 - 0.25, 3)  # the rest of the +0.34 move

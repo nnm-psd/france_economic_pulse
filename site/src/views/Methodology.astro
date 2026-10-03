@@ -36,6 +36,7 @@ const track = data.track;
       head={[t(lang, "data.month"), labels.actual, labels.estimate, t(lang, "method.ar")]}
       rows={[...data.backtest].reverse().map((r) => [month(lang, r.m), pct(lang, r.actual), pct(lang, r.ridge), pct(lang, r.ar)])}
       height={300}
+      csv="backtest.csv"
     >
       <ul slot="legend" class="legend small">
         <li><span class="key"></span>{labels.actual}</li>

@@ -1,7 +1,7 @@
 ---
 // A chart drawn in the browser by src/scripts/charts.ts, with a data table for screen readers,
 // keyboard users and anyone without JavaScript.
-import { t, type Lang } from "../i18n";
+import { t, url, type Lang } from "../i18n";
 
 interface Props {
   lang: Lang;
@@ -12,8 +12,9 @@ interface Props {
   rows: string[][];
   height: number | string; // reserved before the chart draws, so nothing jumps (CLS); a string is any CSS length
   level?: 2 | 3;
+  csv?: string; // file name in /data/csv/, offered next to the table
 }
-const { lang, spec, title, description, head, rows, height, level = 2 } = Astro.props;
+const { lang, spec, title, description, head, rows, height, level = 2, csv } = Astro.props;
 const Heading = `h${level}`;
 ---
 
@@ -38,6 +39,7 @@ const Heading = `h${level}`;
       </table>
     </div>
   </details>
+  {csv && <a class="small" href={url(`data/csv/${csv}`)} download>{t(lang, "data.csv")}</a>}
 </figure>
 
 <script>

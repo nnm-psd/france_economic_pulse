@@ -207,5 +207,21 @@
   "model.s9.switch": "Aujourd’hui, la variante « {variant} » fait mieux sur toute la période : son adoption sera réexaminée.",
   "model.s9.revisit": "Cette comparaison est recalculée à chaque mise à jour. Elle sera réexaminée quand le bilan en temps réel couvrira douze mois, ou plus tôt si une variante prend l’avantage sur toute la période.",
   "footer.licences": "Licences : code",
-  "footer.data": ", données"
+  "footer.data": ", données",
+  "data.csv": "Télécharger en CSV",
+  "evo.title": "Comment l’estimation a évolué",
+  "evo.intro": "L’estimation est recalculée chaque jour avec les dernières données. Chaque changement se décompose exactement en nouvelles données, par source, et en réestimation du modèle.",
+  "evo.empty": "L’historique a commencé le {date} : la courbe et le détail des changements apparaîtront dès les prochaines mises à jour.",
+  "evo.chart_title": "Estimation pour {month}, jour après jour",
+  "evo.chart_desc": "Variation estimée (%) à chaque mise à jour, avec l’intervalle à 80 %. Le point bleu est le premier chiffre de l’INSEE, une fois publié.",
+  "evo.changes_caption": "Ce qui a fait bouger les estimations (points de pourcentage)",
+  "evo.no_changes": "Aucun changement depuis le début de l’historique : les données de ces mois n’ont pas été révisées.",
+  "evo.col_date": "Date",
+  "evo.col_change": "Changement",
+  "evo.src.production": "Production publiée",
+  "evo.src.electricity": "Électricité",
+  "evo.src.climate": "Climat des affaires",
+  "evo.src.insolvencies": "Défaillances",
+  "evo.src.rates": "Taux",
+  "evo.refit": "Réestimation du modèle"
 }

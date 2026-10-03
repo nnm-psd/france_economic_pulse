@@ -18,7 +18,17 @@ from .model import COVID, MODELS, diagnostics, explain, nowcast, scorecard
 from .sources import bodacc, ecb, insee, rte, weather
 
 SITE = Path(__file__).resolve().parent.parent / "site"
-LOG = store.DATA / "nowcasts.parquet"  # every published estimate, one row per (day, month)
+LOG = store.DATA / "nowcasts.parquet"  # every published estimate, one row per (day, month), with its inputs
+PARAMS = store.DATA / "model_params.parquet"  # the ridge model of each day: intercept, mean, scale, weight per input
+
+# Inputs grouped by source, for the "what moved the estimate" breakdown.
+SOURCES_OF = {
+    "production": ["y_lag2"],
+    "electricity": ["elec", "elec_lag1"],
+    "climate": ["climate", "climate_chg"],
+    "insolvencies": ["insolv_yoy"],
+    "rates": ["spread_lag1", "spread_chg_lag1"],
+}
 SINCE = pd.Period("2015-01", "M")  # charts start here
 
 
@@ -34,13 +44,62 @@ def expected_release(m: pd.Period) -> str:
     return (d + pd.offsets.BDay(0)).date().isoformat()
 
 
-def log_nowcasts(rows: list[dict]) -> pd.DataFrame:
-    """Archive today's published estimates, so each can be scored once INSEE publishes the month."""
-    new = pd.DataFrame([{"made": pd.Timestamp(date.today()), "month": r["m"], "g": r["g"], "lo": r["lo"], "hi": r["hi"]} for r in rows])
-    log = pd.concat([pd.read_parquet(LOG), new]) if LOG.exists() else new
-    log = log.drop_duplicates(["made", "month"], keep="last").sort_values(["made", "month"]).reset_index(drop=True)
-    log.to_parquet(LOG, index=False)
-    return log
+def append(path, new: pd.DataFrame, key: list[str]) -> pd.DataFrame:
+    """Add today's rows to an archive file; a rerun on the same day replaces that day's rows."""
+    old = pd.read_parquet(path) if path.exists() else new.iloc[:0]
+    out = pd.concat([old, new]).drop_duplicates(key, keep="last").sort_values(key).reset_index(drop=True)
+    out.to_parquet(path, index=False)
+    return out
+
+
+def log_nowcasts(rows: list[dict], detail: dict) -> pd.DataFrame:
+    """Archive today's published estimates with their exact value and inputs, so each can be scored once
+    INSEE publishes the month, and every change between two days can be explained (evolution)."""
+    today = pd.Timestamp(date.today())
+    inputs = {m["m"]: m for m in detail["months"]}
+    new = pd.DataFrame([{
+        "made": today, "month": r["m"], "g": r["g"], "lo": r["lo"], "hi": r["hi"], "pred": inputs[r["m"]]["pred"],
+        **{f"x_{f['name']}": x for f, x in zip(detail["features"], inputs[r["m"]]["x"])},
+    } for r in rows])
+    append(PARAMS, pd.DataFrame([{
+        "made": today, "intercept": detail["intercept"],
+        **{f"{k}_{f['name']}": f[k] for f in detail["features"] for k in ("mean", "scale", "coef")},
+    }]), ["made"])
+    return append(LOG, new, ["made", "month"])
+
+
+def evolution(log: pd.DataFrame, params: pd.DataFrame, live: list[dict]) -> list[dict]:
+    """Each month's estimate day by day, and what moved it between two consecutive days:
+
+    change = news + re-estimation, where news from input j = w_j(yesterday) * (x_j(today) - x_j(yesterday)) / sigma_j(yesterday)
+    (new data, valued with yesterday's model) and re-estimation is the rest (the model refitted on new data).
+    Exact by construction; news is summed by source.
+    """
+    released = {r["m"]: r for r in live}
+    p = params.set_index("made")
+    out = []
+    for month, hist in log.groupby("month"):
+        hist = hist.sort_values("made").reset_index(drop=True)
+        changes = []
+        for (_, a), (_, b) in zip(hist.iterrows(), hist.iloc[1:].iterrows()):
+            if "pred" not in hist or pd.isna(a.get("pred")) or pd.isna(b.get("pred")) or a["made"] not in p.index:
+                continue
+            w = p.loc[a["made"]]
+            news = {src: sum(w[f"coef_{c}"] * (b[f"x_{c}"] - a[f"x_{c}"]) / w[f"scale_{c}"] for c in cols)
+                    for src, cols in SOURCES_OF.items()}
+            total = b["pred"] - a["pred"]
+            if abs(total) < 5e-4:
+                continue
+            changes.append({"made": b["made"].date().isoformat(), "total": round(float(total), 3),
+                            "news": {k: round(float(v), 3) for k, v in news.items()},
+                            "refit": round(float(total - sum(news.values())), 3)})
+        out.append({
+            "m": month,
+            "days": [{"made": r.made.date().isoformat(), "g": float(r.g), "lo": float(r.lo), "hi": float(r.hi)} for r in hist.itertuples()],
+            "changes": changes,
+            **({"released": released[month]["released"], "actual": released[month]["actual"]} if month in released else {}),
+        })
+    return out
 
 
 def live_record(log: pd.DataFrame) -> list[dict]:
@@ -101,7 +160,9 @@ def build() -> dict:
             "release": expected_release(m),
         })
 
-    log = log_nowcasts(rows)
+    detail = explain(raw)
+    log = log_nowcasts(rows, detail)
+    live = live_record(log)
 
     elec = corrected_electricity(daily_electricity(raw["rte"]), raw["weather"].set_index("date")["temp_c"], pd.Timestamp.now())
     elec = 100 * np.exp(elec - elec[pd.period_range("2019-01", "2019-12", freq="M")].mean())
@@ -120,7 +181,8 @@ def build() -> dict:
             {"made": r.made.date().isoformat(), "m": r.month, "g": float(r.g)}
             for r in log.sort_values(["made", "month"], ascending=False).head(60).itertuples()
         ],
-        "live": live_record(log),
+        "live": live,
+        "evolution": evolution(log, pd.read_parquet(PARAMS), live),
         "track": {
             "from": str(bt.index.min()), "to": str(bt.index.max()), "n": len(normal),
             "rmse": round(sc.at["ridge", "rmse"], 3), "rmse_ar": round(sc.at["ar", "rmse"], 3),
@@ -146,7 +208,7 @@ def build() -> dict:
             "insolvencies": points(openings[complete][SINCE:], 0),
             "spread": points(((f["spread_lag1"].shift(-1))[SINCE:]), 0),
         },
-        "model": explain(raw),
+        "model": detail,
         "sources": [
             {"id": name, "latest": store.load(name)["date"].max().date().isoformat(), "max_age_days": s.MAX_AGE.days}
             for name, s in sources.items()
@@ -154,8 +216,30 @@ def build() -> dict:
     }
 
 
+def write_csv(site: dict) -> None:
+    """One CSV per series in site/public/data/csv/, for spreadsheet users (CC BY 4.0, D28)."""
+    out = SITE / "public" / "data" / "csv"
+    out.mkdir(parents=True, exist_ok=True)
+    series = lambda pts, col: pd.DataFrame(pts).rename(columns={"m": "month", "v": col})
+    tables = {
+        "ipi": series(site["ipi"], "ipi_industry_2021_100"),
+        "electricity": series(site["indicators"]["electricity"], "electricity_weather_corrected_2019_100"),
+        "climate": series(site["indicators"]["climate"], "business_climate"),
+        "insolvencies": series(site["indicators"]["insolvencies"], "insolvency_openings"),
+        "spread": series(site["indicators"]["spread"], "fr_de_10y_spread_bp"),
+        "backtest": pd.DataFrame(site["backtest"]).rename(columns={"m": "month", "actual": "actual_pct", "ridge": "estimate_pct",
+                                                                   "ar": "naive_pct", "gbm": "gbm_pct"}),
+        "nowcasts": pd.read_parquet(LOG)[["made", "month", "g", "lo", "hi"]].rename(
+            columns={"g": "estimate_pct", "lo": "range80_low", "hi": "range80_high"}),
+    }
+    for name, table in tables.items():
+        table.to_csv(out / f"{name}.csv", index=False, lineterminator="\n")
+
+
 def main() -> None:
-    text = json.dumps(build(), ensure_ascii=False, separators=(",", ":"))
+    site = build()
+    write_csv(site)
+    text = json.dumps(site, ensure_ascii=False, separators=(",", ":"))
     for path in (SITE / "src" / "data" / "site.json", SITE / "public" / "data" / "site.json"):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")

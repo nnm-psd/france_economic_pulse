@@ -30,6 +30,7 @@ const latest = Object.fromEntries(data.sources.map((s) => [s.id, s.latest]));
               head={[t(lang, "data.month"), t(lang, "data.value")]}
               rows={[...series].reverse().map((p) => [month(lang, p.m), num(lang, p.v, ind.digits)])}
               height={220}
+              csv={`${ind.key}.csv`}
             />
             <p class="small">{t(lang, "ind.source", { source: t(lang, `src.${ind.source}`), date: latestDate(lang, ind.source, latest[ind.source]) })}</p>
           </section>

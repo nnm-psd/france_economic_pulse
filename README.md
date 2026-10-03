@@ -36,6 +36,10 @@ npm run preview                     # http://localhost:4321/france_economic_puls
 
 Data sources: RTE éCO2mix (ODRE), INSEE, ECB, BODACC (DILA), Open-Meteo.
 
+## Downloads and citation
+
+Every series is downloadable as CSV from its chart, or all at once as [JSON](https://nnm-psd.github.io/france_economic_pulse/data/site.json). To cite the project, use GitHub's "Cite this repository" button ([CITATION.cff](CITATION.cff)).
+
 ## Licence
 
 Code: [MIT](LICENSE). Data produced by this project (estimates, model outputs, the site's data file): [CC BY 4.0](LICENSE-DATA.md); credit "France Economic Pulse, Ngoc Minh NGUYEN". Source data in `data/raw/` stays under each provider's licence, listed in [LICENSE-DATA.md](LICENSE-DATA.md).

@@ -285,6 +285,23 @@ Tested against the published model on the same walk-forward backtest (127 months
 - **Preview images:** `/og.png` and `/en/og.png` (1200×630), built with `sharp` from an SVG: headline plus a sparkline of the index and the estimate. Set as `og:image`, with `twitter:card` `summary_large_image`. The CI runner has no IBM Plex installed, so the image uses a system sans.
 - **Dataset markup:** schema.org `Dataset` JSON-LD on the home page (description, creator, coverage, sources, JSON download, licence CC BY 4.0), for Google Dataset Search.
 
+### D29. How the estimate evolved, and why (2026-10-03)
+
+Modelled on the New York Fed Staff Nowcast's signature feature: show how each new data release moved the estimate.
+
+- **What's archived daily:** in `data/nowcasts.parquet`, each pending month's exact estimate (`pred`) and input values (`x_<input>`); in `data/model_params.parquet`, the day's ridge intercept and each input's mean, scale and weight.
+- **Exact decomposition** (`publish.evolution`): for the same month between two consecutive updates,
+  change = Σ news_j + re-estimation, where news_j = w_j(yesterday) × (x_j(today) − x_j(yesterday)) / σ_j(yesterday).
+  News values the new data with yesterday's model; re-estimation is the remainder (the model refitted on new data). News is summed by source: published production, electricity, business climate, insolvencies, rates. Tested in `tests/test_publish.py`.
+- **On the home page** ("How the estimate has changed"): a step chart of the latest month's estimate at each update with its 80% band, plus INSEE's first figure once published. Below it, a table of every change split by source. Until there are two days of history, the section says when it will fill. Both states were checked, the populated one with simulated history.
+- **Not reconstructed backwards:** the history starts on 2026-10-03, the first archived day. Rebuilding earlier days would need the data as it stood then, which wasn't kept.
+- **Comparison with official forecasts: not done.** INSEE (*Note de conjoncture*) and the Banque de France forecast GDP, not monthly industrial production, so a fair comparison needs a GDP target first (phase 5).
+
+### D30. Downloads and citation
+
+- **CSV:** `publish` writes one file per series to `site/public/data/csv/` (`ipi`, `electricity`, `climate`, `insolvencies`, `spread`, `backtest`, `nowcasts`). Each chart links its file ("Download as CSV"), under CC BY 4.0 (D28).
+- **Citation:** `CITATION.cff` (validated with `cffconvert`) gives the repository GitHub's "Cite this repository" button. A DOI needs the owner to connect the repository to Zenodo and publish a GitHub release.
+
 ### D28. Licences and hosting address (owner's decisions, 2026-10-03)
 
 - **Code: MIT** ([LICENSE](../LICENSE)).
@@ -353,7 +370,7 @@ French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Lic
 | 2 ✅ | Weather correction, features, AR(1) and ridge backtest | Walk-forward RMSE reported against AR(1); assumptions written up in this file. Done 2026-10-03: `uv run backtest`, results in D21; 9 tests pass. |
 | 3 ✅ | Astro site, version 1 (3 pages in French and English) | Audits in D17 pass locally in both languages. Done 2026-10-03: see D17 results. |
 | 4 ⏳ | Scheduled GitHub Actions run and Pages deploy | Two scheduled runs in a row succeed and the site updates. Pages enabled and the site live on 2026-10-03; push and manual runs deploy successfully. Waiting for the first two 05:00 UTC scheduled runs. |
-| 5 | Additions: GDELT tone, daily spread (Banque de France key), GDP target | One at a time, each only if it improves the nowcast or the site |
+| 5 | Additions: quarterly GDP target (then a comparison with INSEE and Banque de France forecasts), GDELT tone, daily spread (Banque de France key), real-time backtest on archived releases once a year of them exists | One at a time, each only if it improves the nowcast or the site |
 
 ## 11. Settled decisions
 

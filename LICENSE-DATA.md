@@ -8,9 +8,9 @@ The estimates, model outputs and published data files created by this project ar
 [Creative Commons Attribution 4.0 International licence (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
 This covers:
 
-- `data/nowcasts.parquet` (archived estimates)
+- `data/nowcasts.parquet` (archived estimates and their inputs) and `data/model_params.parquet` (each day's model)
 - `data/model/` (backtest results and model experiments)
-- `site/src/data/site.json` and `site/public/data/site.json` (the website's data file)
+- `site/src/data/site.json`, `site/public/data/site.json` and `site/public/data/csv/` (the website's data files)
 
 You may share and adapt them for any purpose, including commercially, as long as you give credit:
 

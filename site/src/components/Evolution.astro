@@ -1,0 +1,97 @@
+---
+// How each pending month's estimate moved day by day, and why (publish.evolution, D29).
+import Chart from "./Chart.astro";
+import data from "../data/site.json";
+import { t, month, day, num, pct, type Lang } from "../i18n";
+
+const { lang } = Astro.props as { lang: Lang };
+type Month = { m: string; days: { made: string; g: number; lo: number; hi: number }[]; changes: { made: string; total: number; news: Record<string, number>; refit: number }[]; released?: string; actual?: number };
+const evo = data.evolution as Month[];
+const pending = new Set(data.nowcast.map((n) => n.m));
+const shown = evo.filter((e) => pending.has(e.m) || e.released); // pending months, plus released ones kept for the record
+const latest = evo.find((e) => e.m === data.nowcast[data.nowcast.length - 1].m)!;
+const sources = ["production", "electricity", "climate", "insolvencies", "rates"];
+const changes = shown.flatMap((e) => e.changes.map((c) => ({ ...c, m: e.m }))).sort((a, b) => b.made.localeCompare(a.made) || b.m.localeCompare(a.m));
+const first = evo.flatMap((e) => e.days.map((d) => d.made)).sort()[0];
+const signed = (v: number) =>
+  new Intl.NumberFormat(lang === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }).format(v);
+---
+
+<section class="stack" style="--space: 1.25rem" aria-labelledby="evolution">
+  <h2 id="evolution">{t(lang, "evo.title")}</h2>
+  <p>{t(lang, "evo.intro")}</p>
+  {latest.days.length < 2 ? (
+    <p>{t(lang, "evo.empty", { date: day(lang, first) })}</p>
+  ) : (
+    <Chart
+      lang={lang}
+      level={3}
+      spec={{
+        kind: "evolution", lang, days: latest.days,
+        actual: latest.released ? { released: latest.released, v: latest.actual } : undefined,
+        labels: { estimate: t(lang, "overview.estimate"), band: t(lang, "overview.band") },
+      }}
+      title={t(lang, "evo.chart_title", { month: month(lang, latest.m) })}
+      description={t(lang, "evo.chart_desc")}
+      head={[t(lang, "evo.col_date"), t(lang, "overview.estimate"), t(lang, "overview.band")]}
+      rows={[...latest.days].reverse().map((d) => [day(lang, d.made), pct(lang, d.g, 2), `${pct(lang, d.lo, 2)} … ${pct(lang, d.hi, 2)}`])}
+      height={240}
+      csv="nowcasts.csv"
+    >
+      <ul slot="legend" class="legend small">
+        <li><span class="key key-estimate"></span>{t(lang, "overview.estimate")}</li>
+        <li><span class="key key-band"></span>{t(lang, "overview.band")}</li>
+      </ul>
+    </Chart>
+  )}
+  {latest.days.length >= 2 && (changes.length ? (
+    <div class="table-scroll">
+      <table class="changes">
+        <caption>{t(lang, "evo.changes_caption")}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{t(lang, "evo.col_date")}</th>
+            <th scope="col">{t(lang, "data.month")}</th>
+            <th scope="col" class="num">{t(lang, "evo.col_change")}</th>
+            {sources.map((s) => <th scope="col" class="num">{t(lang, `evo.src.${s}`)}</th>)}
+            <th scope="col" class="num">{t(lang, "evo.refit")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {changes.map((c) => (
+            <tr>
+              <th scope="row">{day(lang, c.made)}</th>
+              <td>{month(lang, c.m)}</td>
+              <td class="num strong">{signed(c.total)}</td>
+              {sources.map((s) => <td class="num">{Math.abs(c.news[s]) < 0.005 ? "–" : signed(c.news[s])}</td>)}
+              <td class="num">{Math.abs(c.refit) < 0.005 ? "–" : signed(c.refit)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  ) : (
+    <p class="small">{t(lang, "evo.no_changes")}</p>
+  ))}
+</section>
+
+<style>
+  .table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  table.changes {
+    max-width: 62rem;
+  }
+  tbody th,
+  tbody td:nth-child(2) {
+    white-space: nowrap;
+  }
+  .strong {
+    font-weight: 600;
+  }
+  tbody th {
+    font-weight: 400;
+    color: var(--ink);
+  }
+</style>

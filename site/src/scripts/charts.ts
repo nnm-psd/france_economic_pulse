@@ -13,7 +13,8 @@ type Spec =
   | { kind: "scatter"; lang: Lang; rows: { m: string; actual: number; ridge: number }[]; labels: Record<string, string> }
   | { kind: "rolling"; lang: Lang; rows: { m: string; ridge: number; ar: number }[]; labels: Record<string, string> }
   | { kind: "hist"; lang: Lang; errors: number[]; labels: Record<string, string> }
-  | { kind: "weights"; lang: Lang; rows: { m: string; w: number[] }[]; names: string[] };
+  | { kind: "weights"; lang: Lang; rows: { m: string; w: number[] }[]; names: string[] }
+  | { kind: "evolution"; lang: Lang; days: { made: string; g: number; lo: number; hi: number }[]; actual?: { released: string; v: number }; labels: Record<string, string> };
 
 const date = (m: string) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1, 1));
 const iso = (d: Date) => d.toISOString().slice(0, 7);
@@ -212,7 +213,38 @@ function weights(s: Extract<Spec, { kind: "weights" }>, width: number) {
   });
 }
 
-const draw = { level, line, backtest, contrib, scatter, rolling, hist, weights } as Record<Spec["kind"], (s: any, w: number) => Element>;
+// One month's estimate at each daily update (dashed orange, as everywhere), its 80% band, and INSEE's first figure.
+function evolution(s: Extract<Spec, { kind: "evolution" }>, width: number) {
+  const d = (iso: string) => new Date(`${iso}T00:00:00Z`);
+  const rows = s.days.map((r) => ({ x: d(r.made), ...r }));
+  const dayFmt = new Intl.DateTimeFormat(s.lang === "fr" ? "fr-FR" : "en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  const f = (v: number) => pct(s.lang, v, 2);
+  const actual = s.actual ? [{ x: d(s.actual.released), v: s.actual.v }] : [];
+  return Plot.plot({
+    width,
+    height: 240,
+    marginLeft: 48,
+    marginRight: 24,
+    style: plotStyle(),
+    // Few updates: tick exactly the update days (automatic ticks would repeat a day at sub-day steps).
+    x: { type: "utc", label: null, ticks: rows.length <= Math.floor(width / 70) ? rows.map((r) => r.x) : Math.floor(width / 110), tickFormat: (x: Date) => dayFmt.format(x) },
+    y: { grid: true, label: null, nice: true, tickFormat: (v: number) => pct(s.lang, v, 1) },
+    marks: [
+      Plot.ruleY([0], { stroke: css("--baseline") }),
+      Plot.areaY(rows, { x: "x", y1: "lo", y2: "hi", fill: css("--band"), curve: "step-after" }),
+      Plot.lineY(rows, { x: "x", y: "g", stroke: css("--series-2"), strokeWidth: 2, strokeDasharray: "5,4", curve: "step-after" }),
+      Plot.dot(rows.slice(-1), { x: "x", y: "g", r: 4.5, fill: css("--series-2"), stroke: css("--page"), strokeWidth: 2 }),
+      Plot.dot(actual, { x: "x", y: "v", r: 5, fill: css("--series-1"), stroke: css("--page"), strokeWidth: 2 }),
+      Plot.ruleX(rows, Plot.pointerX({ x: "x", stroke: css("--baseline") })),
+      Plot.tip(rows, Plot.pointerX({
+        x: "x", y: "g", fill: css("--page"), stroke: css("--rule"),
+        title: (r) => `${dayFmt.format(r.x)}\n${s.labels.estimate}${colon(s.lang)}${f(r.g)}\n${s.labels.band}${colon(s.lang)}${f(r.lo)} … ${f(r.hi)}`,
+      })),
+    ],
+  });
+}
+
+const draw = { level, line, backtest, contrib, scatter, rolling, hist, weights, evolution } as Record<Spec["kind"], (s: any, w: number) => Element>;
 
 function render(fig: HTMLElement, width: number) {
   tokens = getComputedStyle(document.documentElement);

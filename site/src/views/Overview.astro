@@ -3,6 +3,7 @@ import Base from "../layouts/Base.astro";
 import Chart from "../components/Chart.astro";
 import Signals from "../components/Signals.astro";
 import LiveRecord from "../components/LiveRecord.astro";
+import Evolution from "../components/Evolution.astro";
 import { lateSources } from "../fresh";
 import data from "../data/site.json";
 import { t, month, day, pct, num, pageUrl, type Lang } from "../i18n";
@@ -54,6 +55,7 @@ const recent = data.ipi.slice(-37);
         ...data.nowcast.map((p) => [month(lang, p.m), "", `${num(lang, p.level, 1)} (${num(lang, p.level_lo, 1)} – ${num(lang, p.level_hi, 1)})`]),
       ]}
       height={340}
+      csv="ipi.csv"
     >
       <ul slot="legend" class="legend small">
         <li><span class="key key-official"></span>{labels.official}</li>
@@ -85,6 +87,8 @@ const recent = data.ipi.slice(-37);
         </tbody>
       </table>
     </section>
+
+    <Evolution lang={lang} />
 
     <section class="stack" aria-labelledby="track">
       <h2 id="track">{t(lang, "overview.track_title")}</h2>

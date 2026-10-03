@@ -207,5 +207,21 @@
   "model.s9.switch": "Today, the “{variant}” variant does better over the whole period: adopting it will be reconsidered.",
   "model.s9.revisit": "This comparison is recomputed at every update. It will be reviewed when the real-time track record covers twelve months, or sooner if a variant takes the lead over the whole period.",
   "footer.licences": "Licences: code",
-  "footer.data": ", data"
+  "footer.data": ", data",
+  "data.csv": "Download as CSV",
+  "evo.title": "How the estimate has changed",
+  "evo.intro": "The estimate is recomputed every day with the latest data. Each change splits exactly into new data, by source, and re-estimation of the model.",
+  "evo.empty": "The history started on {date}: the chart and the breakdown of changes will appear with the next updates.",
+  "evo.chart_title": "Estimate for {month}, day by day",
+  "evo.chart_desc": "Estimated change (%) at each update, with the 80% range. The blue dot is INSEE’s first figure, once published.",
+  "evo.changes_caption": "What moved the estimates (percentage points)",
+  "evo.no_changes": "No change since the history started: the data for these months hasn’t been revised.",
+  "evo.col_date": "Date",
+  "evo.col_change": "Change",
+  "evo.src.production": "Published production",
+  "evo.src.electricity": "Electricity",
+  "evo.src.climate": "Business climate",
+  "evo.src.insolvencies": "Insolvencies",
+  "evo.src.rates": "Rates",
+  "evo.refit": "Model re-estimation"
 }

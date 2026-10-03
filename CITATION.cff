@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use these estimates, data or code, please cite them as below."
+title: "France Economic Pulse: an open nowcast of French industrial production"
+type: software
+authors:
+  - family-names: "NGUYEN"
+    given-names: "Ngoc Minh"
+repository-code: "https://github.com/nnm-psd/france_economic_pulse"
+url: "https://nnm-psd.github.io/france_economic_pulse/"
+abstract: >-
+  A daily-updated, bilingual (French/English) nowcast of French industrial production,
+  published before INSEE's official release. A ridge regression combines weather-corrected
+  electricity consumption (RTE), INSEE business surveys, BODACC insolvency openings and the
+  France-Germany 10-year yield spread (ECB). Formulas, live coefficients, a walk-forward
+  backtest, a real-time track record and all code and data are public.
+keywords:
+  - nowcasting
+  - industrial production
+  - France
+  - open data
+  - ridge regression
+license: MIT
+date-released: "2026-10-03"
