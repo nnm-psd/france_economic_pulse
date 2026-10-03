@@ -21,6 +21,8 @@ SERIES = {
     "010768261": "ipi_industry",  # SA-WDA IPI, base 2021, NAF A10 BE (target)
     "010768307": "ipi_manufacturing",  # SA-WDA IPI, base 2021, NAF A10 CZ
     "001565530": "business_climate",  # Business climate, all sectors, metropolitan France
+    "001587025": "services_climate",  # Business climate in services (GDP model, D32)
+    "011794487": "consumption_goods",  # Household consumption of goods, volume, SA-WDA (GDP model, D32)
 }
 TARGET = ["ipi_industry", "ipi_manufacturing"]
 

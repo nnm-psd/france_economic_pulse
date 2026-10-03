@@ -315,6 +315,24 @@ Modelled on the New York Fed Staff Nowcast's signature feature: show how each ne
   - **The bottleneck is the monthly nowcast**, not the bridge.
 - **Decision under D10:** no GDP model beats AR(1) in the real-time test, so **no GDP nowcast is published on the site**. The source, archive and backtest stay in the pipeline (cheap), so improvements can be measured. The owner chooses between the options listed under open questions.
 
+### D32. Services data for the GDP nowcast: tested, not published (2026-10-03)
+
+- **Fixed before testing:** two variants and one run, adopted only if clearly better than AR(1). Otherwise stop, with no further tweaking.
+  - **A:** classic bridge + INSEE services business climate (`001587025`, monthly since 1989; quarterly mean − 100).
+  - **B:** A + household consumption of goods (`011794487`, volume, SA-WDA, monthly since 1980). Growth of the quarter's first two months against the full previous quarter, because month 3 is published with GDP itself.
+- **Data:** both series added to the INSEE source; all GDP models train on the same quarters, so the comparison is fair. The benchmark results are unchanged.
+
+| RMSE, 34 normal quarters (2016–2026, excl. 2020–2021) | Error | p vs AR(1) |
+|---|---|---|
+| AR(1) | **0.313** | — |
+| Classic bridge | 0.317 | 0.54 |
+| A: + services climate | 0.322 | 0.60 |
+| B: + services climate + consumption | 0.310 | 0.47 |
+
+- **Result:** B is 1% better than AR(1), well within chance (p = 0.47); A is worse. **Not published**, and testing stopped as planned.
+- **Reading:** quarterly French GDP growth since 2016 has been small and smooth (standard deviation ~0.33 points), and last quarter's growth already captures most of what is predictable. Survey levels add little at this horizon. The one input that helps, industrial production, loses its edge when the quarter's last month has to be estimated (D31).
+- **What could still work** (not pursued without the owner's go-ahead): waiting for the third month (a nowcast published after INSEE's IPI release, about 5 days after the GDP flash, would be pointless), or richer real-time data that isn't freely available (card spending, as the Banque de France uses).
+
 ### D30. Downloads and citation
 
 - **CSV:** `publish` writes one file per series to `site/public/data/csv/` (`ipi`, `electricity`, `climate`, `insolvencies`, `spread`, `backtest`, `nowcasts`). Each chart links its file ("Download as CSV"), under CC BY 4.0 (D28).
@@ -406,4 +424,4 @@ Still open: analytics (a cookie-free service such as GoatCounter needs an accoun
 GDP nowcast (D31), owner to choose:
 1. Keep it unpublished until it beats AR(1). The monthly nowcast is the bottleneck, so improving it helps both.
 2. Publish it as "experimental", with the benchmark result shown prominently.
-3. Add services data (e.g. INSEE's services and retail surveys) and retest. Services are ~80% of GDP, and industrial data can't see them.
+3. ~~Add services data and retest~~: done 2026-10-03, no significant gain (D32).

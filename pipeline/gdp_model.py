@@ -30,6 +30,9 @@ MODELS = {
     "ar": (["y_lag1"], LinearRegression),
     "bridge": (["ipi_q"], LinearRegression),  # the classic bridge: GDP growth on industrial production growth
     "ridge": (FEATURES, lambda: make_pipeline(StandardScaler(), RidgeCV(alphas=RIDGE_ALPHAS))),  # first spec (D31)
+    # Services variants, fixed before testing (D32): A adds the services climate, B also household consumption.
+    "services": (["ipi_q", "services_q"], LinearRegression),
+    "services_conso": (["ipi_q", "services_q", "conso_q2"], LinearRegression),
 }
 
 
@@ -47,6 +50,14 @@ def quarterly(raw, ipi: pd.Series) -> pd.DataFrame:
     ipi_q, climate = by_q(ipi), by_q(monthly(raw, "business_climate"))
     ipi_level = ipi_q["mean"][ipi_q["count"] == 3]  # complete quarters only
     climate_q = climate["mean"][climate["count"] == 3]
+    services = by_q(monthly(raw, "services_climate"))
+    services_q = services["mean"][services["count"] == 3]
+    # Consumption: months 1-2 of the quarter (month 3 is published with GDP itself) against the full previous quarter.
+    conso = monthly(raw, "consumption_goods")
+    by_quarter = conso.groupby(conso.index.asfreq("Q"))
+    first2 = by_quarter.apply(lambda s: s.iloc[:2].mean() if len(s) >= 2 else np.nan)
+    full = by_quarter.agg(["mean", "count"])
+    full = full["mean"][full["count"] == 3]
     quarters = pd.period_range(gdp.index.min(), max(gdp.index.max(), ipi_level.index.max()), freq="Q")
     on = lambda s: s.reindex(quarters)
     q = pd.DataFrame(index=quarters)
@@ -55,11 +66,17 @@ def quarterly(raw, ipi: pd.Series) -> pd.DataFrame:
     q["ipi_q"] = 100 * np.log(on(ipi_level)).diff()
     q["climate_q"] = on(climate_q) - 100
     q["climate_chg_q"] = on(climate_q).diff()
+    q["services_q"] = on(services_q) - 100
+    q["conso_q2"] = 100 * np.log(on(first2) / on(full).shift(1))
     return q
 
 
+ALL_INPUTS = sorted({c for cols, _ in MODELS.values() for c in cols})
+
+
 def training(q: pd.DataFrame, before: pd.Period) -> pd.DataFrame:
-    return q.loc[: before - 1].drop(COVID, errors="ignore").dropna(subset=["y", *FEATURES])
+    """Every model trains on the same quarters (all inputs available), so the comparison is fair."""
+    return q.loc[: before - 1].drop(COVID, errors="ignore").dropna(subset=["y", *ALL_INPUTS])
 
 
 def fit_predict(train: pd.DataFrame, target: pd.DataFrame) -> dict[str, np.ndarray]:
@@ -78,7 +95,7 @@ def backtest(raw, monthly_bt: pd.DataFrame) -> pd.DataFrame:
         ipi_rt = ipi[:m2].copy()
         ipi_rt[m3] = ipi[m2] * np.exp(monthly_bt.at[m3, "ridge"] / 100)
         q = quarterly(raw, ipi_rt)
-        if q.loc[[t], FEATURES].isna().any(axis=None):
+        if q.loc[[t], ALL_INPUTS].isna().any(axis=None):
             continue
         preds = fit_predict(training(q, t), q.loc[[t]])
         rows.append({"quarter": t, "actual": q.at[t, "y"], **{k: float(v[0]) for k, v in preds.items()}})
@@ -98,7 +115,7 @@ def scores(bt: pd.DataFrame) -> dict:
         "rmse": {k: float(v) for k, v in rmse.items()},
         "mae": {k: float(v) for k, v in err.abs().mean().items()},
         "hit": {k: float((np.sign(normal[k]) == np.sign(normal["actual"])).mean()) for k in MODELS},
-        "dm_p": {m: dm(m) for m in ("bridge", "ridge")},
+        "dm_p": {m: dm(m) for m in MODELS if m not in ("mean", "ar")},
         "q80": float(err["ridge"].abs().quantile(0.8)),
         "coverage": {"share": float(inside.mean()), "n": int(len(inside))},
     }
@@ -111,8 +128,8 @@ def nowcast(raw, estimated_ipi: dict[pd.Period, float]) -> tuple[pd.DataFrame, d
     ipi = monthly(raw, "ipi_industry")
     ipi = pd.concat([ipi, pd.Series(estimated_ipi)]).sort_index()
     q = quarterly(raw, ipi)
-    pending = q[q["y"].isna()].dropna(subset=FEATURES)
-    train = q.drop(COVID, errors="ignore").dropna(subset=["y", *FEATURES])
+    pending = q[q["y"].isna()].dropna(subset=ALL_INPUTS)
+    train = q.drop(COVID, errors="ignore").dropna(subset=["y", *ALL_INPUTS])
     preds = pd.DataFrame(fit_predict(train, pending), index=pending.index)
     model = MODELS["ridge"][1]().fit(train[FEATURES], train["y"])
     scaler, ridge = model[0], model[-1]
@@ -137,8 +154,8 @@ def main() -> None:
     s = scores(bt)
     print(f"GDP bridge, walk-forward {s['from']} to {s['to']} ({s['n']} normal quarters), as known at INSEE's first estimate")
     for k in MODELS:
-        print(f"  {k:6} RMSE {s['rmse'][k]:.3f}  MAE {s['mae'][k]:.3f}  direction {s['hit'][k]:.0%}")
-    print(f"  vs AR(1), DM p: bridge {s['dm_p']['bridge']:.3f}, ridge {s['dm_p']['ridge']:.3f}")
+        print(f"  {k:14} RMSE {s['rmse'][k]:.3f}  MAE {s['mae'][k]:.3f}  direction {s['hit'][k]:.0%}")
+    print("  vs AR(1), DM p: " + ", ".join(f"{k} {v:.3f}" for k, v in s["dm_p"].items()))
 
 
 if __name__ == "__main__":
