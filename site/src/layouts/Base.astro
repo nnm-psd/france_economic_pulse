@@ -32,6 +32,7 @@ const dataset = page === "overview" && {
   temporalCoverage: `${data.ipi[0].m}/${data.nowcast[data.nowcast.length - 1].m}`,
   spatialCoverage: { "@type": "Place", name: "France" },
   isAccessibleForFree: true,
+  license: "https://creativecommons.org/licenses/by/4.0/",
   isBasedOn: [
     "https://odre.opendatasoft.com/explore/dataset/eco2mix-national-tr/",
     "https://www.insee.fr/fr/statistiques/serie/010768261",
@@ -104,6 +105,10 @@ const dataset = page === "overview" && {
         <a href="https://github.com/nnm-psd/france_economic_pulse">{t(lang, "footer.github")}</a>.{" "}
         <a href={url("data/site.json")} download>{t(lang, "data.download")}</a>.{" "}
         <a href={url(lang === "fr" ? "rss.xml" : "en/rss.xml")}>{t(lang, "rss.link")}</a>.
+      </p>
+      <p>
+        {t(lang, "footer.licences")} <a href="https://github.com/nnm-psd/france_economic_pulse/blob/main/LICENSE">MIT</a>{t(lang, "footer.data")}{" "}
+        <a href="https://github.com/nnm-psd/france_economic_pulse/blob/main/LICENSE-DATA.md">CC BY 4.0</a>.
       </p>
       <p>{t(lang, "footer.disclaimer")}</p>
     </footer>

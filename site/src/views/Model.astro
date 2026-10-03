@@ -19,6 +19,10 @@ const months = [...m.months].reverse();
 const rowsFor = (mo: (typeof m.months)[number]) =>
   m.features.map((f, j) => ({ name: f.name, label: t(lang, `feat.${f.name}`), x: mo.x[j], z: mo.z[j], w: f.coef, c: mo.contrib[j] }));
 
+// Step 8: variants from pipeline/experiments.py; the one with the lowest full-period RMSE is marked.
+const variants = Object.entries(data.experiments) as [string, (typeof data.experiments)["published"]][];
+const bestFull = variants.reduce((a, b) => (b[1].rmse < a[1].rmse ? b : a))[0];
+
 // Formulas (language-neutral TeX).
 const F = {
   target: String.raw`y_t = 100 \,\ln\frac{\mathrm{IPI}_t}{\mathrm{IPI}_{t-1}}`,
@@ -203,6 +207,53 @@ const sum = (mo: (typeof m.months)[number]) =>
     </p>
     <p><a href={pageUrl("methodology", lang)}>{t(lang, "overview.track_link")}</a></p>
 
+    <section class="stack" style="--space: 1.25rem" aria-labelledby="variants">
+      <h2 id="variants">{t(lang, "model.s9")}</h2>
+      <p>{t(lang, "model.s9.text")}</p>
+      <ul>
+        <li>{t(lang, "model.s9.recent")}</li>
+        <li>{t(lang, "model.s9.holidays")}</li>
+      </ul>
+      <div class="table-scroll">
+        <table class="wide">
+          <caption>{t(lang, "model.s9.caption")}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{t(lang, "model.s9.col_variant")}</th>
+              <th scope="col" class="num">{t(lang, "method.col_rmse")}</th>
+              <th scope="col" class="num">{t(lang, "method.col_hit")}</th>
+              <th scope="col" class="num">{t(lang, "model.s9.col_last24")}</th>
+              <th scope="col" class="num">{t(lang, "model.s9.col_sept")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {variants.map(([name, v]) => (
+              <tr class:list={{ best: name === bestFull }}>
+                <th scope="row">{t(lang, `model.s9.v.${name}`)}</th>
+                <td class="num">{num(lang, v.rmse, 3)}</td>
+                <td class="num">{pct(lang, v.hit * 100, 0, false)}</td>
+                <td class="num">{num(lang, v.rmse_last24, 3)}</td>
+                <td class="num">{signed(v.sept_bias, 2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="small">{t(lang, "model.s9.naive_note", { ar: num(lang, data.experiments.published.ar_last24, 3) })}</p>
+      <h3>{t(lang, "model.s9.tradeoff_title")}</h3>
+      <p>{t(lang, "model.s9.tradeoff")}</p>
+      <h3>{t(lang, "model.s9.rule_title")}</h3>
+      <p>{t(lang, "model.s9.rule")}</p>
+      <p>
+        <strong>
+          {bestFull === "published"
+            ? t(lang, "model.s9.keep")
+            : t(lang, "model.s9.switch", { variant: t(lang, `model.s9.v.${bestFull}`) })}
+        </strong>{" "}
+        {t(lang, "model.s9.revisit")}
+      </p>
+    </section>
+
     <h2>{t(lang, "model.s8")}</h2>
     <p>{t(lang, "model.s8.text")}</p>
     {(Object.keys(EXCERPTS) as (keyof typeof EXCERPTS)[]).map((key) => (
@@ -227,6 +278,10 @@ const sum = (mo: (typeof m.months)[number]) =>
   }
   table.wide {
     max-width: 58rem;
+  }
+  tr.best th,
+  tr.best td {
+    font-weight: 600;
   }
   .total {
     font-weight: 600;

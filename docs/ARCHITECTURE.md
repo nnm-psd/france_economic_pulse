@@ -252,9 +252,9 @@ Each page exists in French and English (D19).
 - **Contribution chart:** horizontal bars from zero, largest first, blue for "pushes up" and red for "pushes down" (the `dataviz` diverging pair, validated in both modes), with signed value labels and the full table below.
 - **Audit (2026-10-03):** Performance 97, Accessibility 100, Best Practices 100, SEO 100 on both language versions.
 
-### D24. Model experiments, 2026-10-03: neither variant adopted
+### D24. Model experiments: neither variant adopted (owner's decision, 2026-10-03)
 
-Tested against the published model on the same walk-forward backtest (127 months, normal months scored). Script: weather-correction variants swapped into `features.corrected_electricity`.
+Tested against the published model on the same walk-forward backtest (127 months, normal months scored). Reproducible with `uv run experiments` (`pipeline/experiments.py`). The variants are options of `corrected_electricity` (`window_years`, `holidays`), off by default; `backtest(raw, weather=...)` passes them through.
 
 | Variant | RMSE | vs AR(1) | DM p | Direction | RMSE, last 24 months (AR: 0.929) | September bias since 2022 |
 |---|---|---|---|---|---|---|
@@ -263,7 +263,10 @@ Tested against the published model on the same walk-forward backtest (127 months
 | Public-holiday dummy | 1.267 | 0.955 | 0.07 | 56% | 0.933 | −0.56 |
 | Both | 1.302 | 0.982 | 0.21 | 53% | 0.919 | 0.00 |
 
-- **Recent seasons fix the September bias** and beat AR(1) over the last 24 months, but are worse over the full period, probably because short windows make the early years noisy. Under D10 the published model stays. Adopting it would mean choosing recent accuracy over the full-period score: a product decision, left to the owner.
+- **Recent seasons fix the September bias** and beat AR(1) over the last 24 months, but are worse over the full period, probably because short windows make the early years noisy.
+- **Decision (owner, 2026-10-03): keep the published model.** It follows D10: a variant replaces it only if it does better over the whole test period, and 24 recent months are too few to tell progress from chance.
+- **Shown on the site:** Model page, step 8 "Why this model": the table (recomputed daily by the workflow), the trade-off, the decision rule, and a line saying whether the published model still leads. The Method page's September limitation links to it.
+- **When to review:** when the real-time track record (D25) covers 12 months, or sooner if a variant takes the lead over the full period (the page then says so).
 - **Holidays:** no gain; dropped.
 - **Not tuned further:** trying window lengths until one wins would overfit the backtest.
 - **3-month growth target: not tested**, because it changes what the site publishes, not just how well. It needs an explicit decision first.
@@ -280,7 +283,15 @@ Tested against the published model on the same walk-forward backtest (127 months
 
 - **RSS:** `/rss.xml` (French) and `/en/rss.xml`, static files built from the latest 60 archived estimates, linked in `<head>` and the footer.
 - **Preview images:** `/og.png` and `/en/og.png` (1200×630), built with `sharp` from an SVG: headline plus a sparkline of the index and the estimate. Set as `og:image`, with `twitter:card` `summary_large_image`. The CI runner has no IBM Plex installed, so the image uses a system sans.
-- **Dataset markup:** schema.org `Dataset` JSON-LD on the home page (description, creator, coverage, sources, JSON download), for Google Dataset Search. No `license` field yet: the repository has no licence (see open questions).
+- **Dataset markup:** schema.org `Dataset` JSON-LD on the home page (description, creator, coverage, sources, JSON download, licence CC BY 4.0), for Google Dataset Search.
+
+### D28. Licences and hosting address (owner's decisions, 2026-10-03)
+
+- **Code: MIT** ([LICENSE](../LICENSE)).
+- **Data produced by the project: CC BY 4.0** ([LICENSE-DATA.md](../LICENSE-DATA.md)): archived estimates, model outputs and the site's data file. Chosen over Etalab 2.0 because it's recognised internationally, Open-Meteo already uses it, and Etalab 2.0 is designed to be compatible with CC BY.
+- **Source data** in `data/raw/` and `data/snapshots/` keeps each provider's licence (Etalab 2.0 for RTE/ODRE, INSEE and DILA; the ECB reuse policy; CC BY 4.0 for Open-Meteo), listed in LICENSE-DATA.md.
+- **On the site:** licences in the footer of every page and in the Method page's sources section; `license` in the Dataset markup (D26); `license` in `pyproject.toml` and `package.json`.
+- **Address:** the free `https://nnm-psd.github.io/france_economic_pulse/` is kept permanently. No custom domain, so `base` stays in `astro.config.mjs`.
 
 ### D27. Automatic quality checks
 
@@ -306,7 +317,7 @@ Tested against the published model on the same walk-forward backtest (127 months
   - Scheduled runs can start a few minutes late.
   - GitHub can switch off schedules on repos with no activity, but the daily data commit counts as activity.
   - Free GitHub Pages requires a public repo. That's settled: the repo is public, so the code, the data history and the model's track record are all open.
-  - The site URL is `https://nnm-psd.github.io/france_economic_pulse/`, so Astro needs `base: '/france_economic_pulse'` until a custom domain is added.
+  - The site URL is `https://nnm-psd.github.io/france_economic_pulse/`, kept permanently (D28), so Astro keeps `base: '/france_economic_pulse'`.
 - **Failure alerts:** GitHub emails you when a run fails. The methodology page marks a source "late" when its newest data point is older than that source's `MAX_AGE` (D9).
 - **Rejected:** Cloudflare Pages and Netlify. Both are just as good; Pages is chosen because it keeps everything in one place. Switching later is easy.
 
@@ -342,7 +353,7 @@ French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Lic
 | 2 ✅ | Weather correction, features, AR(1) and ridge backtest | Walk-forward RMSE reported against AR(1); assumptions written up in this file. Done 2026-10-03: `uv run backtest`, results in D21; 9 tests pass. |
 | 3 ✅ | Astro site, version 1 (3 pages in French and English) | Audits in D17 pass locally in both languages. Done 2026-10-03: see D17 results. |
 | 4 ⏳ | Scheduled GitHub Actions run and Pages deploy | Two scheduled runs in a row succeed and the site updates. Pages enabled and the site live on 2026-10-03; push and manual runs deploy successfully. Waiting for the first two 05:00 UTC scheduled runs. |
-| 5 | Additions: GDELT tone, daily spread (Banque de France key), GDP target, custom domain | One at a time, each only if it improves the nowcast or the site |
+| 5 | Additions: GDELT tone, daily spread (Banque de France key), GDP target | One at a time, each only if it improves the nowcast or the site |
 
 ## 11. Settled decisions
 
@@ -351,9 +362,8 @@ French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Lic
 | Languages | French (default, `/`) and English (`/en/`), from launch (D2, D19) |
 | Repository | Public: github.com/nnm-psd/france_economic_pulse (D18) |
 | Name | France Economic Pulse |
+| Licence | MIT for code, CC BY 4.0 for the project's data (D28) |
+| Address | Free GitHub Pages address, no custom domain (D28) |
+| Model | Keep the published model; trade-off explained on the Model page (D24) |
 
-Still open, waiting for the owner's decision:
-1. **Licence.** The repository has no LICENSE file, so the code and data aren't legally reusable yet, even though the site calls them open. Suggested: MIT for the code, Licence Ouverte / Etalab 2.0 or CC BY 4.0 for the derived data.
-2. **Custom domain** (needs a domain purchase). Then remove `base` in `astro.config.mjs`.
-3. **Analytics:** a cookie-free service such as GoatCounter or Plausible needs an account; no consent banner required.
-4. **Model:** whether to adopt the recent-season variant (D24) or a 3-month target.
+Still open: analytics (a cookie-free service such as GoatCounter needs an account) and a 3-month target (changes what the site publishes).

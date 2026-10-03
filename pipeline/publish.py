@@ -139,6 +139,7 @@ def build() -> dict:
             for period, table in (("normal", scorecard(bt).loc["excl. Mar-Jul 2020"]), ("all", scorecard(bt).loc["all months"]))
         },
         "diagnostics": diagnostics(bt),
+        "experiments": json.loads((store.DATA / "model" / "experiments.json").read_text(encoding="utf-8")),  # D24
         "indicators": {
             "electricity": points(elec[SINCE:], 2),
             "climate": points(f["climate"][SINCE:] + 100, 1),

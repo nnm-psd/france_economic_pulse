@@ -1,5 +1,5 @@
 ---
-import { num, pct, month } from "../i18n";
+import { num, pct, month, pageUrl } from "../i18n";
 const { track } = Astro.props;
 const lang = "en";
 ---
@@ -48,7 +48,8 @@ const lang = "en";
     </li>
     <li>
       <strong>September.</strong> Since 2022, weather-corrected electricity drops sharply every September, probably
-      because habits changed after the energy crisis. The September estimate is likely biased downward.
+      because habits changed after the energy crisis. The September estimate is likely biased downward. The variants tested to correct it, and why they weren’t
+      adopted, are on the <a href={pageUrl("model", lang)}>Model page</a>.
     </li>
     <li>
       <strong>The month before.</strong> The same model also estimates the previous month, without using the extra
@@ -59,7 +60,8 @@ const lang = "en";
   <h2>Sources and licences</h2>
   <p>
     RTE éCO2mix via ODRE, INSEE and BODACC (DILA): Licence Ouverte / Etalab 2.0. Interest rates: European Central Bank.
-    Temperatures: Open-Meteo, CC BY 4.0. The code and the full data history are public on GitHub.
+    Temperatures: Open-Meteo, CC BY 4.0. The code and the full data history are public on GitHub: the code under the MIT licence, the data produced by
+    this project under CC BY 4.0.
   </p>
 </section>
 

@@ -34,4 +34,8 @@ cd site && npm install && npm run build   # static site in site/dist
 npm run preview                     # http://localhost:4321/france_economic_pulse/
 ```
 
-Data sources: RTE éCO2mix (ODRE), INSEE, ECB, BODACC (DILA), Open-Meteo. See the architecture document for licences.
+Data sources: RTE éCO2mix (ODRE), INSEE, ECB, BODACC (DILA), Open-Meteo.
+
+## Licence
+
+Code: [MIT](LICENSE). Data produced by this project (estimates, model outputs, the site's data file): [CC BY 4.0](LICENSE-DATA.md); credit "France Economic Pulse, Ngoc Minh NGUYEN". Source data in `data/raw/` stays under each provider's licence, listed in [LICENSE-DATA.md](LICENSE-DATA.md).

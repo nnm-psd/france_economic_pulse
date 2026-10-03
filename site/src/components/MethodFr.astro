@@ -1,5 +1,5 @@
 ---
-import { num, pct, month } from "../i18n";
+import { num, pct, month, pageUrl } from "../i18n";
 const { track } = Astro.props;
 const lang = "fr";
 ---
@@ -50,7 +50,8 @@ const lang = "fr";
     <li>
       <strong>Septembre.</strong> Depuis 2022, la consommation d’électricité corrigée baisse nettement chaque septembre,
       probablement parce que les habitudes ont changé après la crise énergétique. L’estimation de septembre est sans doute
-      tirée vers le bas.
+      tirée vers le bas. Les variantes testées pour la corriger, et pourquoi elles n’ont pas été retenues, sont sur la
+      <a href={pageUrl("model", lang)}>page Modèle</a>.
     </li>
     <li>
       <strong>Le mois précédent.</strong> Le même modèle estime aussi le mois précédent, sans tirer parti du mois de
@@ -62,7 +63,7 @@ const lang = "fr";
   <p>
     RTE éCO2mix via l’ODRE, INSEE et BODACC (DILA) : Licence Ouverte / Etalab 2.0. Taux d’intérêt : Banque centrale
     européenne. Températures : Open-Meteo, CC BY 4.0. Le code et l’historique complet des données sont publics sur
-    GitHub.
+    GitHub : le code sous licence MIT, les données produites par ce projet sous licence CC BY 4.0.
   </p>
 </section>
 

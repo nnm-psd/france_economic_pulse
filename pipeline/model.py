@@ -43,7 +43,7 @@ def predict(models: dict, target: pd.DataFrame) -> dict[str, np.ndarray]:
     return {name: m.predict(target[MODELS[name][0]]) for name, m in models.items()}
 
 
-def backtest(raw) -> pd.DataFrame:
+def backtest(raw, weather: dict | None = None) -> pd.DataFrame:
     """Expanding window: for each month t, refit everything on data available at the start of t+1.
 
     Also keeps each refit's standardised ridge weights (w_<feature>), to show how stable the model is.
@@ -51,7 +51,7 @@ def backtest(raw) -> pd.DataFrame:
     last = raw["insee"].query("series == 'ipi_industry'")["date"].max().to_period("M")
     rows = []
     for t in pd.period_range(START, last, freq="M"):
-        f = monthly_features(raw, fit_until=(t + 1).start_time)
+        f = monthly_features(raw, fit_until=(t + 1).start_time, weather=weather)
         if f.loc[[t], FEATURES].isna().any(axis=None):
             continue
         models = fit(training_rows(f, t))

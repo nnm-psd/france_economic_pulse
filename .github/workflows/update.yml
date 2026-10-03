@@ -48,6 +48,7 @@ jobs:
       - name: Refit the nowcast and write the site data
         run: |
           uv run backtest
+          uv run experiments
           uv run publish
 
       - name: Commit the data

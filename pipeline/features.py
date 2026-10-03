@@ -8,6 +8,7 @@ Every feature below is lagged to match.
 
 import numpy as np
 import pandas as pd
+from dateutil.easter import easter
 
 from . import store
 
@@ -35,10 +36,25 @@ def daily_electricity(rte: pd.DataFrame) -> pd.Series:
     return g.mean()[g.count() >= 40]  # 48 half-hours a day (46/50 on DST change days)
 
 
-def corrected_electricity(daily: pd.Series, temp: pd.Series, fit_until: pd.Timestamp) -> pd.Series:
+def french_holidays(years) -> set[pd.Timestamp]:
+    """The 11 French public holidays: 8 fixed dates plus Easter Monday, Ascension and Whit Monday."""
+    days = set()
+    for y in years:
+        e = pd.Timestamp(easter(y))
+        days |= {pd.Timestamp(y, m, d) for m, d in [(1, 1), (5, 1), (5, 8), (7, 14), (8, 15), (11, 1), (11, 11), (12, 25)]}
+        days |= {e + pd.Timedelta(days=n) for n in (1, 39, 50)}
+    return days
+
+
+def corrected_electricity(
+    daily: pd.Series, temp: pd.Series, fit_until: pd.Timestamp, window_years: int | None = None, holidays: bool = False
+) -> pd.Series:
     """Monthly mean of log consumption after removing temperature, weekday and calendar-month effects (D4).
 
     The coefficients are fitted only on days before `fit_until`, so a backtest never sees the future.
+    The two options are the variants tested in D24 (not used by the published model):
+    window_years: each calendar year's residuals come from a fit on the `window_years` years ending with it.
+    holidays: add a French public-holiday dummy.
     """
     df = pd.DataFrame({"y": np.log(daily)}).join(temp.rename("t"), how="inner")
     idx = df.index
@@ -50,19 +66,32 @@ def corrected_electricity(daily: pd.Series, temp: pd.Series, fit_until: pd.Times
         }, index=idx),
         pd.get_dummies(idx.dayofweek, prefix="dow", drop_first=True, dtype=float).set_index(idx),
         pd.get_dummies(idx.month, prefix="m", drop_first=True, dtype=float).set_index(idx),
+        *([pd.DataFrame({"holiday": idx.isin(french_holidays(set(idx.year))).astype(float)}, index=idx)] if holidays else []),
     ], axis=1)
-    # ponytail: no public-holiday dummies, add them if monthly residuals show holiday noise.
     fit = idx < fit_until
-    beta, *_ = np.linalg.lstsq(X[fit].to_numpy(), df["y"][fit].to_numpy(), rcond=None)
-    resid = df["y"] - X.to_numpy() @ beta
+    if window_years is None:
+        beta, *_ = np.linalg.lstsq(X[fit].to_numpy(), df["y"][fit].to_numpy(), rcond=None)
+        resid = df["y"] - X.to_numpy() @ beta
+    else:
+        resid = pd.Series(np.nan, index=idx)
+        for y in sorted(set(idx.year)):
+            window = fit & (idx.year > y - window_years) & (idx.year <= y)
+            if window.sum() < 200:  # too few days in the first years: use everything known so far
+                window = fit & (idx.year <= y)
+            beta, *_ = np.linalg.lstsq(X[window].to_numpy(), df["y"][window].to_numpy(), rcond=None)
+            year = idx.year == y
+            resid[year] = df["y"][year] - X[year].to_numpy() @ beta
     month = resid.groupby(idx.to_period("M"))
     out = month.mean()[month.count() >= MIN_DAYS]
     out.attrs["weather"] = {"hdd": float(beta[1]), "cdd": float(beta[2]), "days": int(fit.sum())}  # shown on the model page
     return out
 
 
-def monthly_features(raw: dict[str, pd.DataFrame], fit_until: pd.Timestamp) -> pd.DataFrame:
-    """One row per month: target `y` (IPI growth, %) and FEATURES, aligned to the nowcast timing."""
+def monthly_features(raw: dict[str, pd.DataFrame], fit_until: pd.Timestamp, weather: dict | None = None) -> pd.DataFrame:
+    """One row per month: target `y` (IPI growth, %) and FEATURES, aligned to the nowcast timing.
+
+    `weather` passes variant options to corrected_electricity (experiments only, D24).
+    """
     def wide(df):
         w = df.pivot(index="date", columns="series", values="value")
         w.index = w.index.to_period("M")
@@ -70,7 +99,7 @@ def monthly_features(raw: dict[str, pd.DataFrame], fit_until: pd.Timestamp) -> p
 
     insee, ecb = wide(raw["insee"]), wide(raw["ecb"])
     temp = raw["weather"].set_index("date")["temp_c"]
-    elec = corrected_electricity(daily_electricity(raw["rte"]), temp, fit_until)
+    elec = corrected_electricity(daily_electricity(raw["rte"]), temp, fit_until, **(weather or {}))
     openings = raw["bodacc"].set_index("date")["openings"]
     openings = openings.groupby(openings.index.to_period("M")).sum()
 
