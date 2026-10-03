@@ -2,7 +2,12 @@
 
 Open-data nowcast of French industrial production, published as a bilingual (FR/EN) website that updates itself daily.
 
+Live site: https://nnm-psd.github.io/france_economic_pulse/ (English: `/en/`).
 Design and decisions: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## How it updates
+
+A GitHub Actions workflow ([update.yml](.github/workflows/update.yml)) runs daily at 05:00 UTC, on every push to `main`, and on demand from the Actions tab. It fetches new data, refits the nowcast, commits the data, rebuilds the site and deploys it to GitHub Pages. If a data source is down, the site is still rebuilt with that source's last good data and the run is marked failed so you get an email.
 
 ## Run the data pipeline
 

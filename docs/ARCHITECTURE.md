@@ -2,7 +2,7 @@
 
 A public website that tracks the French economy using open, regularly updated data. It publishes a machine-learning **nowcast** of French industrial production: an estimate made before INSEE publishes the official figure. The data refreshes automatically in the cloud. No one downloads data by hand.
 
-Status: phases 1 (data pipeline), 2 (model) and 3 (website) done; phase 4 (automation and deploy) next. Last updated: 2026-10-03.
+Status: phases 1–3 done; phase 4 (automation and deploy) written, waiting for GitHub Pages to be enabled and two scheduled runs to pass. Last updated: 2026-10-03.
 Repository: https://github.com/nnm-psd/france_economic_pulse (public). Languages: French and English.
 
 ## 1. Overview
@@ -223,14 +223,21 @@ Each page exists in French and English (D19).
 
 ### D18. GitHub Actions on a daily schedule, then GitHub Pages
 
-- **Choice:** One workflow, `.github/workflows/update.yml`. It runs at 05:00 UTC and can also be started by hand. Steps: install with `uv`, then fetch, check and model, then commit `data/`, then build Astro, then deploy with `actions/deploy-pages`.
+- **Choice:** One workflow, `.github/workflows/update.yml`, with two jobs.
+  - **Triggers:** daily at 05:00 UTC, every push to `main` (code changes go live without waiting a day) and by hand from the Actions tab. The workflow's own data commits use `GITHUB_TOKEN`, which never re-triggers a workflow, so there is no loop.
+  - **`update` job:** set up Python 3.12 with `uv` (cached) → `uv sync --locked` and `pytest` → `uv run pipeline` → `uv run backtest` and `uv run publish` → commit `data/` and the site data file as `github-actions[bot]` (only if something changed; `git pull --rebase` first in case you pushed meanwhile) → Node 24 with npm cache → `npm ci` and `npm run build` → upload `site/dist` as the Pages artifact.
+  - **`deploy` job:** `actions/deploy-pages` to the `github-pages` environment.
+  - **Concurrency:** one run at a time and never cancelled midway, so a data commit is never cut in half.
+  - **Action versions** (latest major, checked 2026-10-03): `actions/checkout@v7`, `astral-sh/setup-uv@v7`, `actions/setup-node@v7`, `actions/upload-pages-artifact@v5`, `actions/deploy-pages@v5`.
+- **When a source fails:** the fetch step is allowed to fail. The pipeline still saves the sources that worked (D9), the model and site are rebuilt with the last good data for the failed source, the methodology page marks that source "late", and the site is deployed. The run then ends in failure, so GitHub emails an alert. A failure in the tests, the model or the build stops the run before deploying, and the previous site stays online.
+- **One-time setup (repo owner):** Settings → Pages → Build and deployment → Source: **GitHub Actions**. The workflow can't switch this on itself: `GITHUB_TOKEN` doesn't have admin rights.
 - **Why:** Free, no server to run, and the same repo holds the code, data history and site.
 - **Known limits:**
   - Scheduled runs can start a few minutes late.
   - GitHub can switch off schedules on repos with no activity, but the daily data commit counts as activity.
   - Free GitHub Pages requires a public repo. That's settled: the repo is public, so the code, the data history and the model's track record are all open.
   - The site URL is `https://nnm-psd.github.io/france_economic_pulse/`, so Astro needs `base: '/france_economic_pulse'` until a custom domain is added.
-- **Failure alerts:** GitHub emails you when a run fails. The site shows a staleness warning when a source is more than 2× its normal update interval old.
+- **Failure alerts:** GitHub emails you when a run fails. The methodology page marks a source "late" when its newest data point is older than that source's `MAX_AGE` (D9).
 - **Rejected:** Cloudflare Pages and Netlify. Both are just as good; Pages is chosen because it keeps everything in one place. Switching later is easy.
 
 ## 8. Repository layout
@@ -264,7 +271,7 @@ French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Lic
 | 1 ✅ | Fetch modules for RTE, INSEE, ECB and BODACC, plus a temperature source | `uv run pipeline` fetches only new rows twice in a row; tests pass. Verified 2026-10-03: run 2 added 0 rows and rewrote no files; 7 tests pass. |
 | 2 ✅ | Weather correction, features, AR(1) and ridge backtest | Walk-forward RMSE reported against AR(1); assumptions written up in this file. Done 2026-10-03: `uv run backtest`, results in D21; 9 tests pass. |
 | 3 ✅ | Astro site, version 1 (3 pages in French and English) | Audits in D17 pass locally in both languages. Done 2026-10-03: see D17 results. |
-| 4 | Scheduled GitHub Actions run and Pages deploy | Two scheduled runs in a row succeed and the site updates |
+| 4 ⏳ | Scheduled GitHub Actions run and Pages deploy | Two scheduled runs in a row succeed and the site updates. Workflow written and checked locally 2026-10-03 (valid YAML, `uv` lock current, Linux build binaries present in `package-lock.json`); waiting for Pages to be enabled. |
 | 5 | Additions: GDELT tone, daily spread (Banque de France key), GDP target, custom domain | One at a time, each only if it improves the nowcast or the site |
 
 ## 11. Settled decisions

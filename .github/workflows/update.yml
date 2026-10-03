@@ -1,0 +1,99 @@
+# Daily update (D18): fetch new data, refit the nowcast, commit the data, build the site, deploy to GitHub Pages.
+# Also runs on every push to main (code changes deploy straight away) and by hand from the Actions tab.
+# Pushes made by this workflow use GITHUB_TOKEN, which never re-triggers it, so there is no loop.
+name: Update data and deploy
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # 05:00 UTC, after RTE, BODACC and Open-Meteo have published the previous day
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # commit the data
+  pages: write
+  id-token: write
+
+concurrency:
+  group: update
+  cancel-in-progress: false # never cut a data commit in half
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      built: ${{ steps.upload.outcome }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install and test the pipeline
+        run: |
+          uv sync --locked
+          uv run pytest -q
+
+      # A failing source must not stop the others or the deploy: the pipeline saves what it can,
+      # the site shows the stale source as late, and the last step fails the run so GitHub emails an alert (D9).
+      - name: Fetch new data
+        id: fetch
+        continue-on-error: true
+        run: uv run pipeline
+
+      - name: Refit the nowcast and write the site data
+        run: |
+          uv run backtest
+          uv run publish
+
+      - name: Commit the data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data site/src/data site/public/data
+          if git diff --cached --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "Data update $(date -u +%Y-%m-%d)"
+            git pull --rebase --quiet
+            git push
+          fi
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Build the site
+        working-directory: site
+        run: |
+          npm ci
+          npm run build
+
+      - id: upload
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/dist
+
+      - name: Fail the run if a source failed
+        if: steps.fetch.outcome == 'failure'
+        run: |
+          echo "::error::At least one data source failed; see the 'Fetch new data' step. The site was still deployed with the data available."
+          exit 1
+
+  deploy:
+    needs: update
+    # Deploy whenever the site was built, even if a source failed: it uses that source's last good data.
+    if: ${{ !cancelled() && needs.update.outputs.built == 'success' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5
