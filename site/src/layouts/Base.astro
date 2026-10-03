@@ -17,6 +17,30 @@ const alt = other(lang);
 const abs = (p: Page, l: Lang) => new URL(pageUrl(p, l), Astro.site).href;
 const fullTitle = page === "overview" ? `${t(lang, "site.name")} | ${title}` : `${title} | ${t(lang, "site.name")}`;
 const nav = Object.keys(routes) as Page[];
+const ogImage = new URL(url(lang === "fr" ? "og.png" : "en/og.png"), Astro.site).href;
+
+// schema.org Dataset on the home page, so the data can be found in Google Dataset Search.
+const dataset = page === "overview" && {
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  name: `${t(lang, "site.name")}: ${t(lang, "overview.title")}`,
+  description: t(lang, "overview.description") + " " + t(lang, "goals.transparency.text"),
+  url: abs("overview", lang),
+  inLanguage: lang,
+  creator: { "@type": "Person", name: "Ngoc Minh NGUYEN", url: "https://github.com/nnm-psd" },
+  dateModified: data.generated,
+  temporalCoverage: `${data.ipi[0].m}/${data.nowcast[data.nowcast.length - 1].m}`,
+  spatialCoverage: { "@type": "Place", name: "France" },
+  isAccessibleForFree: true,
+  isBasedOn: [
+    "https://odre.opendatasoft.com/explore/dataset/eco2mix-national-tr/",
+    "https://www.insee.fr/fr/statistiques/serie/010768261",
+    "https://data.ecb.europa.eu/",
+    "https://bodacc-datadila.opendatasoft.com/",
+    "https://open-meteo.com/",
+  ],
+  distribution: [{ "@type": "DataDownload", encodingFormat: "application/json", contentUrl: new URL(url("data/site.json"), Astro.site).href }],
+};
 ---
 
 <!doctype html>
@@ -35,12 +59,18 @@ const nav = Object.keys(routes) as Page[];
     <meta property="og:type" content="website" />
     <meta property="og:locale" content={lang === "fr" ? "fr_FR" : "en_GB"} />
     <meta property="og:url" content={abs(page, lang)} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    {dataset && <script type="application/ld+json" set:html={JSON.stringify(dataset)} />}
     <meta name="theme-color" content="#f5f7fa" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#141b26" media="(prefers-color-scheme: dark)" />
     <link rel="preload" href={headFont} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={bodyFont} as="font" type="font/woff2" crossorigin />
     <link rel="icon" href={url("favicon.svg")} type="image/svg+xml" />
     <link rel="sitemap" href={url("sitemap-index.xml")} />
+    <link rel="alternate" type="application/rss+xml" title={t(lang, "rss.title")} href={url(lang === "fr" ? "rss.xml" : "en/rss.xml")} />
   </head>
   <body>
     <a class="skip" href="#main">{t(lang, "nav.skip")}</a>
@@ -72,7 +102,8 @@ const nav = Object.keys(routes) as Page[];
       <p>
         {t(lang, "footer.built", { date: day(lang, data.generated) })}{" "}
         <a href="https://github.com/nnm-psd/france_economic_pulse">{t(lang, "footer.github")}</a>.{" "}
-        <a href={url("data/site.json")} download>{t(lang, "data.download")}</a>.
+        <a href={url("data/site.json")} download>{t(lang, "data.download")}</a>.{" "}
+        <a href={url(lang === "fr" ? "rss.xml" : "en/rss.xml")}>{t(lang, "rss.link")}</a>.
       </p>
       <p>{t(lang, "footer.disclaimer")}</p>
     </footer>

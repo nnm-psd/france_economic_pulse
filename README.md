@@ -9,6 +9,10 @@ Design and decisions: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 A GitHub Actions workflow ([update.yml](.github/workflows/update.yml)) runs daily at 05:00 UTC, on every push to `main`, and on demand from the Actions tab. It fetches new data, refits the nowcast, commits the data, rebuilds the site and deploys it to GitHub Pages. If a data source is down, the site is still rebuilt with that source's last good data and the run is marked failed so you get an email.
 
+A second workflow ([quality.yml](.github/workflows/quality.yml)) checks internal links and a Lighthouse budget on every change to the site.
+
+Follow new estimates by RSS: [français](https://nnm-psd.github.io/france_economic_pulse/rss.xml), [English](https://nnm-psd.github.io/france_economic_pulse/en/rss.xml).
+
 ## Run the data pipeline
 
 Requires [uv](https://docs.astral.sh/uv/).

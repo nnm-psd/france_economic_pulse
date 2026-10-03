@@ -2,6 +2,8 @@
 import Base from "../layouts/Base.astro";
 import Chart from "../components/Chart.astro";
 import Signals from "../components/Signals.astro";
+import LiveRecord from "../components/LiveRecord.astro";
+import { lateSources } from "../fresh";
 import data from "../data/site.json";
 import { t, month, day, pct, num, pageUrl, type Lang } from "../i18n";
 
@@ -18,6 +20,13 @@ const recent = data.ipi.slice(-37);
 
 <Base lang={lang} page="overview" title={t(lang, "overview.title")} description={t(lang, "overview.description")}>
   <article class="stack" style="--space: 3rem">
+    {lateSources.length > 0 && (
+      <p class="late" role="status">
+        <span aria-hidden="true">!</span>
+        {t(lang, "fresh.warning", { sources: lateSources.map((s) => t(lang, `src.${s.id}`)).join(", ") })}{" "}
+        <a href={`${pageUrl("methodology", lang)}#fresh`}>{t(lang, "fresh.warning_link")}</a>
+      </p>
+    )}
     <header class="stack hero" style="--space: 1rem">
       <h1>{headline}</h1>
       <p class="lede">
@@ -26,6 +35,11 @@ const recent = data.ipi.slice(-37);
           official_g: pct(lang, data.last_official.g),
           official_month: month(lang, data.last_official.m),
         })}
+      </p>
+      <p class="small">
+        {data.change.before === null
+          ? t(lang, "change.unchanged", { date: day(lang, data.change.since) })
+          : t(lang, "change.revised", { date: day(lang, data.change.since), before: pct(lang, data.change.before) })}
       </p>
     </header>
 
@@ -65,7 +79,7 @@ const recent = data.ipi.slice(-37);
               <th scope="row">{month(lang, n.m)}</th>
               <td class="num">{pct(lang, n.g)}</td>
               <td class="num">{t(lang, "overview.range", { lo: pct(lang, n.lo), hi: pct(lang, n.hi) })}</td>
-              <td>{t(lang, "overview.release", { month: month(lang, n.release) })}</td>
+              <td>{t(lang, "overview.release", { date: day(lang, n.release) })}</td>
             </tr>
           ))}
         </tbody>
@@ -83,6 +97,7 @@ const recent = data.ipi.slice(-37);
           gain: pct(lang, (1 - track.ratio) * 100, 0, false),
         })}
       </p>
+      <LiveRecord lang={lang} />
       <p><a href={pageUrl("methodology", lang)}>{t(lang, "overview.track_link")}</a></p>
     </section>
 
@@ -107,6 +122,17 @@ const recent = data.ipi.slice(-37);
 </Base>
 
 <style>
+  .late {
+    max-width: none;
+    padding: 0.75rem 1rem;
+    border-left: 3px solid var(--late);
+    background: color-mix(in srgb, var(--late) 8%, transparent);
+  }
+  .late span {
+    font-weight: 600;
+    color: var(--late);
+    margin-right: 0.4rem;
+  }
   .goals {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));

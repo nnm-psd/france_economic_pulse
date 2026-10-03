@@ -252,6 +252,42 @@ Each page exists in French and English (D19).
 - **Contribution chart:** horizontal bars from zero, largest first, blue for "pushes up" and red for "pushes down" (the `dataviz` diverging pair, validated in both modes), with signed value labels and the full table below.
 - **Audit (2026-10-03):** Performance 97, Accessibility 100, Best Practices 100, SEO 100 on both language versions.
 
+### D24. Model experiments, 2026-10-03: neither variant adopted
+
+Tested against the published model on the same walk-forward backtest (127 months, normal months scored). Script: weather-correction variants swapped into `features.corrected_electricity`.
+
+| Variant | RMSE | vs AR(1) | DM p | Direction | RMSE, last 24 months (AR: 0.929) | September bias since 2022 |
+|---|---|---|---|---|---|---|
+| **Published (expanding fit)** | **1.262** | **0.952** | **0.07** | **59%** | 0.945 | −0.57 |
+| Recent seasons (each year fitted on the 3 years up to it) | 1.297 | 0.978 | 0.18 | 53% | 0.917 | −0.02 |
+| Public-holiday dummy | 1.267 | 0.955 | 0.07 | 56% | 0.933 | −0.56 |
+| Both | 1.302 | 0.982 | 0.21 | 53% | 0.919 | 0.00 |
+
+- **Recent seasons fix the September bias** and beat AR(1) over the last 24 months, but are worse over the full period, probably because short windows make the early years noisy. Under D10 the published model stays. Adopting it would mean choosing recent accuracy over the full-period score: a product decision, left to the owner.
+- **Holidays:** no gain; dropped.
+- **Not tuned further:** trying window lengths until one wins would overfit the backtest.
+- **3-month growth target: not tested**, because it changes what the site publishes, not just how well. It needs an explicit decision first.
+
+### D25. Live track record, estimate archive and release dates
+
+- **Archive:** each `publish` run appends the day's estimates to `data/nowcasts.parquet` (made, month, estimate, 80% range), one row per day and month. The daily workflow commits it.
+- **Live record** (`publish.live_record`): a month's release date and first figure come from the first IPI snapshot that contains it (D8). The estimate scored is the last one made **strictly before** that date. The site shows month, dates, estimate, INSEE's first figure, the gap and whether it fell inside the range: a summary on the home page and the full table on the Method page. Until the first release (August 2026, expected 5 October), it shows when the first result will come. Tested in `tests/test_publish.py`.
+- **What changed:** under the headline, "unchanged since …" or "revised on … from …", from the archive.
+- **Freshness warning:** if any source is past its `MAX_AGE`, the home page shows a status line naming it, with a link to the Method page's freshness table. Shared logic in `site/src/fresh.ts`.
+- **Release dates:** INSEE has no calendar API. Its published rule is used instead: the IPI comes out 35 days after the month ends, 40 for July and November ([politique de diffusion](https://www.insee.fr/fr/metadonnees/source/indicateur/p1646/politique-diffusion)). This reproduces the July 2026 release (9 September). A weekend date moves to Monday, so the site says "around".
+
+### D26. Sharing and discovery
+
+- **RSS:** `/rss.xml` (French) and `/en/rss.xml`, static files built from the latest 60 archived estimates, linked in `<head>` and the footer.
+- **Preview images:** `/og.png` and `/en/og.png` (1200×630), built with `sharp` from an SVG: headline plus a sparkline of the index and the estimate. Set as `og:image`, with `twitter:card` `summary_large_image`. The CI runner has no IBM Plex installed, so the image uses a system sans.
+- **Dataset markup:** schema.org `Dataset` JSON-LD on the home page (description, creator, coverage, sources, JSON download), for Google Dataset Search. No `license` field yet: the repository has no licence (see open questions).
+
+### D27. Automatic quality checks
+
+- **Workflow `quality.yml`:** runs on pushes that touch `site/` and on pull requests. It's kept separate from the daily update, so a noisy score never blocks the data deploy.
+- **Link check** (`npm run check:links`): every internal `href`/`src` in the built site must point to an existing file, and every `#anchor` to an existing id. Verified by planting a broken link and a broken anchor: both caught.
+- **Lighthouse budget** (`npm run check:lighthouse`): 5 key pages; accessibility, best practices and SEO at least 95. Performance has a lower floor of 80 in CI, because shared runners are noisy; the 90 target is checked locally before releases.
+
 ## 7. Automation and hosting
 
 ### D18. GitHub Actions on a daily schedule, then GitHub Pages
@@ -261,6 +297,7 @@ Each page exists in French and English (D19).
   - **`update` job:** set up Python 3.12 with `uv` (cached) → `uv sync --locked` and `pytest` → `uv run pipeline` → `uv run backtest` and `uv run publish` → commit `data/` and the site data file as `github-actions[bot]` (only if something changed; `git pull --rebase` first in case you pushed meanwhile) → Node 24 with npm cache → `npm ci` and `npm run build` → upload `site/dist` as the Pages artifact.
   - **`deploy` job:** `actions/deploy-pages` to the `github-pages` environment.
   - **Concurrency:** one run at a time and never cancelled midway, so a data commit is never cut in half.
+  - **Runner pinned to `ubuntu-24.04`** (GitHub moves `ubuntu-latest` to 26.04 from 2026-10-19).
   - **Action versions** (latest major, checked 2026-10-03): `actions/checkout@v7`, `astral-sh/setup-uv@v7`, `actions/setup-node@v7`, `actions/upload-pages-artifact@v5`, `actions/deploy-pages@v5`.
 - **When a source fails:** the fetch step is allowed to fail. The pipeline still saves the sources that worked (D9), the model and site are rebuilt with the last good data for the failed source, the methodology page marks that source "late", and the site is deployed. The run then ends in failure, so GitHub emails an alert. A failure in the tests, the model or the build stops the run before deploying, and the previous site stays online.
 - **One-time setup (repo owner):** Settings → Pages → Build and deployment → Source: **GitHub Actions**. The workflow can't switch this on itself: `GITHUB_TOKEN` doesn't have admin rights.
@@ -315,4 +352,8 @@ French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Lic
 | Repository | Public: github.com/nnm-psd/france_economic_pulse (D18) |
 | Name | France Economic Pulse |
 
-Still open: a custom domain (phase 5).
+Still open, waiting for the owner's decision:
+1. **Licence.** The repository has no LICENSE file, so the code and data aren't legally reusable yet, even though the site calls them open. Suggested: MIT for the code, Licence Ouverte / Etalab 2.0 or CC BY 4.0 for the derived data.
+2. **Custom domain** (needs a domain purchase). Then remove `base` in `astro.config.mjs`.
+3. **Analytics:** a cookie-free service such as GoatCounter or Plausible needs an account; no consent banner required.
+4. **Model:** whether to adopt the recent-season variant (D24) or a 3-month target.

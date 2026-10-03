@@ -1,0 +1,40 @@
+# Quality gate (D17) on every code change: broken internal links and a Lighthouse budget.
+# Separate from the daily update on purpose: a noisy score must never block the data deploy.
+name: Quality checks
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", ".github/workflows/quality.yml"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Check internal links and anchors
+        run: npm run check:links
+
+      - name: Lighthouse budget
+        run: |
+          npx astro preview --port 4321 &
+          npx --yes wait-on@8 --timeout 60000 http://localhost:4321/france_economic_pulse/
+          npm run check:lighthouse

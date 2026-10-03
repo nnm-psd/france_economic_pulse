@@ -1,0 +1,64 @@
+---
+// Real-time track record: archived estimates scored against INSEE's first release (publish.live_record).
+// `full` adds the month-by-month table (Method page); without it, a one-paragraph summary (home page).
+import data from "../data/site.json";
+import { t, month, day, num, pct, type Lang } from "../i18n";
+
+const { lang, full = false } = Astro.props as { lang: Lang; full?: boolean };
+const live = data.live as { m: string; made: string; released: string; estimate: number; lo: number; hi: number; actual: number; error: number; inside: boolean }[];
+const next = data.nowcast[0];
+const mae = live.length ? live.reduce((s, r) => s + Math.abs(r.error), 0) / live.length : 0;
+const inside = live.filter((r) => r.inside).length;
+const Heading = full ? "h2" : "h3";
+---
+
+<section class="stack" aria-labelledby="live">
+  <Heading id="live">{t(lang, "live.title")}</Heading>
+  {full && <p>{t(lang, "live.intro")}</p>}
+  <p>
+    {live.length
+      ? t(lang, "live.summary", { n: live.length, mae: num(lang, mae, 2), inside })
+      : t(lang, "live.empty", { month: month(lang, next.m), date: day(lang, next.release) })}
+  </p>
+  {full && live.length > 0 && (
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{t(lang, "data.month")}</th>
+            <th scope="col">{t(lang, "live.col_made")}</th>
+            <th scope="col">{t(lang, "live.col_released")}</th>
+            <th scope="col" class="num">{t(lang, "live.col_estimate")}</th>
+            <th scope="col" class="num">{t(lang, "live.col_actual")}</th>
+            <th scope="col" class="num">{t(lang, "live.col_error")}</th>
+            <th scope="col">{t(lang, "live.col_inside")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...live].reverse().map((r) => (
+            <tr>
+              <th scope="row">{month(lang, r.m)}</th>
+              <td>{day(lang, r.made)}</td>
+              <td>{day(lang, r.released)}</td>
+              <td class="num">{pct(lang, r.estimate)}</td>
+              <td class="num">{pct(lang, r.actual)}</td>
+              <td class="num">{pct(lang, r.error)}</td>
+              <td>{t(lang, r.inside ? "live.yes" : "live.no")}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</section>
+
+<style>
+  .table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  tbody th {
+    font-weight: 400;
+    color: var(--ink);
+  }
+</style>

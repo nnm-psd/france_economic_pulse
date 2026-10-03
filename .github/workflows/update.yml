@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 from 2026-10-19
     timeout-minutes: 20
     outputs:
       built: ${{ steps.upload.outcome }}
@@ -90,7 +90,7 @@ jobs:
     needs: update
     # Deploy whenever the site was built, even if a source failed: it uses that source's last good data.
     if: ${{ !cancelled() && needs.update.outputs.built == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 from 2026-10-19
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}

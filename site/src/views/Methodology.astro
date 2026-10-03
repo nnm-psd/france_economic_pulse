@@ -4,6 +4,8 @@ import Chart from "../components/Chart.astro";
 import MethodFr from "../components/MethodFr.astro";
 import MethodEn from "../components/MethodEn.astro";
 import Diagnostics from "../components/Diagnostics.astro";
+import LiveRecord from "../components/LiveRecord.astro";
+import { sources } from "../fresh";
 import data from "../data/site.json";
 import { t, month, pct, num, latestDate, type Lang } from "../i18n";
 
@@ -13,11 +15,6 @@ const shown = data.backtest.filter((r) => r.m >= "2021-01"); // after the pandem
 const labels = { actual: t(lang, "method.actual"), estimate: t(lang, "method.estimate") };
 const track = data.track;
 
-const generated = Date.parse(data.generated);
-const sources = data.sources.map((s) => ({
-  ...s,
-  late: (generated - Date.parse(s.latest)) / 864e5 > s.max_age_days,
-}));
 ---
 
 <Base lang={lang} page="methodology" title={t(lang, "method.title")} description={t(lang, "method.description")}>
@@ -26,6 +23,8 @@ const sources = data.sources.map((s) => ({
       <h1>{t(lang, "method.title")}</h1>
       <p class="lede">{t(lang, "method.description")}</p>
     </header>
+
+    <LiveRecord lang={lang} full />
 
     <Method track={track} />
 
