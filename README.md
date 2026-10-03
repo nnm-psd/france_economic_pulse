@@ -4,6 +4,7 @@ Open-data nowcast of French industrial production, published as a bilingual (FR/
 
 Live site: https://nnm-psd.github.io/france_economic_pulse/ (English: `/en/`).
 Design and decisions: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Current status, upcoming dates and how to resume work: [docs/STATUS.md](docs/STATUS.md).
 
 ## How it updates
 

@@ -3,7 +3,7 @@
 A public website that tracks the French economy using open, regularly updated data. It publishes a machine-learning **nowcast** of French industrial production: an estimate made before INSEE publishes the official figure. The data refreshes automatically in the cloud. No one downloads data by hand.
 
 Status: phases 1–3 done and live at https://nnm-psd.github.io/france_economic_pulse/ since 2026-10-03; phase 4 deploys work (push and manual runs succeed), waiting for two scheduled runs in a row. Last updated: 2026-10-03.
-Repository: https://github.com/nnm-psd/france_economic_pulse (public). Languages: French and English.
+Repository: https://github.com/nnm-psd/france_economic_pulse (public). Status and how to resume: [STATUS.md](STATUS.md). Languages: French and English.
 
 ## 1. Overview
 
