@@ -1,0 +1,71 @@
+---
+// A chart drawn in the browser by src/scripts/charts.ts, with a data table for screen readers,
+// keyboard users and anyone without JavaScript.
+import { t, type Lang } from "../i18n";
+
+interface Props {
+  lang: Lang;
+  spec: object;
+  title: string;
+  description: string;
+  head: string[];
+  rows: string[][];
+  height: number; // reserved before the chart draws, so nothing jumps (CLS)
+  level?: 2 | 3;
+}
+const { lang, spec, title, description, head, rows, height, level = 2 } = Astro.props;
+const Heading = `h${level}`;
+---
+
+<figure data-chart class="chart stack" style={`--space: 0.5rem; --h: ${height}px`}>
+  <figcaption class="stack" style="--space: 0.25rem">
+    <Heading class="chart-title">{title}</Heading>
+    <p class="small">{description}</p>
+    <slot name="legend" />
+  </figcaption>
+  <div class="plot" role="img" aria-label={`${title}. ${description}`}></div>
+  <script is:inline type="application/json" set:html={JSON.stringify(spec).replace(/</g, "\\u003c")} />
+  <details>
+    <summary>{t(lang, "data.show_table")}</summary>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>{head.map((h, i) => <th scope="col" class={i ? "num" : undefined}>{h}</th>)}</tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => <tr>{r.map((c, i) => (i ? <td class="num">{c}</td> : <th scope="row">{c}</th>))}</tr>)}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</figure>
+
+<script>
+  import "../scripts/charts.ts";
+</script>
+
+<style>
+  .chart {
+    margin: 0;
+  }
+  .chart-title {
+    font-size: 1.2rem;
+  }
+  .plot {
+    min-height: var(--h);
+    width: 100%;
+  }
+  .plot :global(svg) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  .table-scroll {
+    max-height: 24rem;
+    overflow: auto;
+  }
+  tbody th {
+    font-weight: 400;
+    color: var(--ink);
+  }
+</style>

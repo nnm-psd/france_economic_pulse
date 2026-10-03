@@ -1,0 +1,118 @@
+---
+import Base from "../layouts/Base.astro";
+import Chart from "../components/Chart.astro";
+import MethodFr from "../components/MethodFr.astro";
+import MethodEn from "../components/MethodEn.astro";
+import data from "../data/site.json";
+import { t, month, pct, num, latestDate, type Lang } from "../i18n";
+
+const { lang } = Astro.props as { lang: Lang };
+const Method = lang === "fr" ? MethodFr : MethodEn;
+const shown = data.backtest.filter((r) => r.m >= "2021-01"); // after the pandemic swings, so normal months stay readable
+const labels = { actual: t(lang, "method.actual"), estimate: t(lang, "method.estimate") };
+const track = data.track;
+
+const generated = Date.parse(data.generated);
+const sources = data.sources.map((s) => ({
+  ...s,
+  late: (generated - Date.parse(s.latest)) / 864e5 > s.max_age_days,
+}));
+---
+
+<Base lang={lang} page="methodology" title={t(lang, "method.title")} description={t(lang, "method.description")}>
+  <article class="stack" style="--space: 3rem">
+    <header class="stack">
+      <h1>{t(lang, "method.title")}</h1>
+      <p class="lede">{t(lang, "method.description")}</p>
+    </header>
+
+    <Method track={track} />
+
+    <Chart
+      lang={lang}
+      spec={{ kind: "backtest", lang, rows: shown, labels }}
+      title={t(lang, "method.backtest_title")}
+      description={t(lang, "method.backtest_desc")}
+      head={[t(lang, "data.month"), labels.actual, labels.estimate, t(lang, "method.ar")]}
+      rows={[...data.backtest].reverse().map((r) => [month(lang, r.m), pct(lang, r.actual), pct(lang, r.ridge), pct(lang, r.ar)])}
+      height={300}
+    >
+      <ul slot="legend" class="legend small">
+        <li><span class="key"></span>{labels.actual}</li>
+        <li><span class="key key-estimate"></span>{labels.estimate}</li>
+      </ul>
+    </Chart>
+
+    <table>
+      <caption>{t(lang, "method.score_caption")}</caption>
+      <thead>
+        <tr>
+          <th scope="col">{t(lang, "method.col_model")}</th>
+          <th scope="col" class="num">{t(lang, "method.col_rmse")}</th>
+          <th scope="col" class="num">{t(lang, "method.col_hit")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">{t(lang, "method.estimate")}</th>
+          <td class="num">{num(lang, track.rmse, 2)}</td>
+          <td class="num">{pct(lang, track.hit * 100, 0, false)}</td>
+        </tr>
+        <tr>
+          <th scope="row">{t(lang, "method.ar")}</th>
+          <td class="num">{num(lang, track.rmse_ar, 2)}</td>
+          <td class="num">{pct(lang, track.hit_ar * 100, 0, false)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <section class="stack" aria-labelledby="fresh">
+      <h2 id="fresh">{t(lang, "fresh.title")}</h2>
+      <ul class="fresh">
+        {sources.map((s) => (
+          <li>
+            <span class:list={["status", { late: s.late }]}>
+              <span aria-hidden="true">{s.late ? "!" : "✓"}</span>
+              {t(lang, s.late ? "fresh.late" : "fresh.ok")}
+            </span>
+            <span>{t(lang, `src.${s.id}`)}</span>
+            <span class="small">{t(lang, "fresh.latest", { date: latestDate(lang, s.id, s.latest) })}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </article>
+</Base>
+
+<style>
+  .fresh {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-width: 46rem;
+  }
+  .fresh li {
+    display: grid;
+    grid-template-columns: 9rem 10rem 1fr;
+    gap: 0.5rem 1rem;
+    align-items: baseline;
+    padding-block: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  @media (max-width: 36rem) {
+    .fresh li {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .status {
+    color: var(--ok);
+    font-weight: 600;
+  }
+  .status.late {
+    color: var(--late);
+  }
+  .status span {
+    display: inline-block;
+    width: 1.1em;
+  }
+</style>

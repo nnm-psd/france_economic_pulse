@@ -1,0 +1,51 @@
+---
+// Latest value of each indicator, as a compact list (the charts are on the indicators page).
+import data from "../data/site.json";
+import { INDICATORS } from "../indicators";
+import { t, month, num, type Lang } from "../i18n";
+
+const { lang } = Astro.props as { lang: Lang };
+---
+
+<dl class="signals">
+  {INDICATORS.map(({ key, digits }) => {
+    const series = data.indicators[key];
+    const last = series[series.length - 1];
+    return (
+      <div>
+        <dt>{t(lang, `ind.${key}`)}</dt>
+        <dd class="value">{num(lang, last.v, digits)}</dd>
+        <dd class="small">{t(lang, `ind.${key}.unit`)}, {month(lang, last.m)}</dd>
+      </div>
+    );
+  })}
+</dl>
+
+<style>
+  .signals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 1.5rem 2rem;
+    margin: 0;
+  }
+  .signals div {
+    border-top: 1px solid var(--rule);
+    padding-top: 0.75rem;
+  }
+  dt {
+    color: var(--ink-2);
+    font-size: 0.9375rem;
+    line-height: 1.35;
+    min-height: 2.6em;
+  }
+  dd {
+    margin: 0;
+  }
+  .value {
+    font-family: var(--font-head);
+    font-weight: 600;
+    font-size: 2rem;
+    line-height: 1.2;
+    margin-top: 0.25rem;
+  }
+</style>

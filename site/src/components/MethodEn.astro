@@ -1,0 +1,65 @@
+---
+import { num, pct, month } from "../i18n";
+const { track } = Astro.props;
+const lang = "en";
+---
+
+<section class="stack prose" aria-labelledby="how">
+  <h2 id="how">How the estimate is built</h2>
+  <p>
+    INSEE publishes the industrial production index about 40 days after each month ends. In the meantime, other data
+    that come out faster already say something about activity. This estimate combines them to put a number on the
+    month before the official release.
+  </p>
+  <ul>
+    <li>
+      <strong>Electricity.</strong> National consumption published by RTE, corrected for temperature, day of the week
+      and month of the year. Without that correction, a cold month would look like an industrial boom.
+    </li>
+    <li><strong>Business climate.</strong> INSEE’s summary indicator from its business surveys.</li>
+    <li><strong>Insolvencies.</strong> Insolvency proceedings opened, from BODACC notices.</li>
+    <li><strong>Interest rates.</strong> The gap between French and German 10-year yields, published by the ECB.</li>
+  </ul>
+  <p>
+    A regularised linear model (ridge regression) links these signals to the monthly change in production. Each data
+    point is used only from its actual publication date, so an estimate never sees data that wasn’t yet known.
+  </p>
+
+  <h2>How it is tested</h2>
+  <p>
+    For every month since {month(lang, track.from)}, the model is retrained only on the data available at that date,
+    then compared with the figure INSEE published later. It competes with a naive forecast that carries forward the
+    latest known change. March to July 2020 are left out of training: their extreme swings distorted what the model
+    learned.
+  </p>
+  <p>
+    Result, excluding the pandemic: a root mean squared error of {num(lang, track.rmse, 2)} points
+    against {num(lang, track.rmse_ar, 2)} for the naive forecast, {pct(lang, (1 - track.ratio) * 100, 0, false)} better. The
+    Diebold–Mariano test gives p = {num(lang, track.dm_p, 2)}: an encouraging gain, but not statistically proven at
+    the 5% level.
+  </p>
+
+  <h2>Known limits</h2>
+  <ul>
+    <li>
+      <strong>Revised data.</strong> INSEE revises past figures, and the test uses the latest version, so the scores
+      below are somewhat optimistic. Since October 2026 every release is archived as published, to measure real-time
+      performance.
+    </li>
+    <li>
+      <strong>September.</strong> Since 2022, weather-corrected electricity drops sharply every September, probably
+      because habits changed after the energy crisis. The September estimate is likely biased downward.
+    </li>
+    <li>
+      <strong>The month before.</strong> The same model also estimates the previous month, without using the extra
+      month of production published in between.
+    </li>
+  </ul>
+
+  <h2>Sources and licences</h2>
+  <p>
+    RTE éCO2mix via ODRE, INSEE and BODACC (DILA): Licence Ouverte / Etalab 2.0. Interest rates: European Central Bank.
+    Temperatures: Open-Meteo, CC BY 4.0. The code and the full data history are public on GitHub.
+  </p>
+</section>
+

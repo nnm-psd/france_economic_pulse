@@ -1,0 +1,235 @@
+/* Self-hosted fonts: no third-party requests (GDPR) and no layout shift from late fonts. */
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/400-italic.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-sans-condensed/600.css";
+
+/* Tokens; dark mode follows the OS setting. Ink is "bleu de travail" (French workwear blue); the only loud colour is the estimate. */
+:root {
+  color-scheme: light;
+  --page: #f5f7fa;
+  --ink: #1d2b44;
+  --ink-2: #46536b;
+  --muted: #5d6981;
+  --rule: #dde3eb;
+  --baseline: #b6c0ce;
+  --link: #2b4c7e;
+  --series-1: #2a78d6; /* published figures */
+  --series-2: #eb6834; /* estimate */
+  --band: rgb(235 104 52 / 0.14);
+  --late: #b3261e;
+  --ok: #006300;
+
+  --font: "IBM Plex Sans", system-ui, sans-serif;
+  --font-head: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --measure: 40rem;
+  --wide: 68rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #141b26;
+    --ink: #eef2f7;
+    --ink-2: #b8c2d3;
+    --muted: #94a0b4;
+    --rule: #263142;
+    --baseline: #3c4859;
+    --link: #9cc1f0;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --band: rgb(217 89 38 / 0.22);
+    --late: #f08b84;
+    --ok: #0ca30c;
+  }
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 400 1.0625rem/1.6 var(--font);
+  font-kerning: normal;
+}
+a {
+  color: var(--link);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+a:hover {
+  text-decoration-thickness: 2px;
+}
+:focus-visible {
+  outline: 3px solid var(--link);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-head);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+  margin: 0;
+}
+h1 {
+  font-size: clamp(2rem, 1.3rem + 3.2vw, 3.4rem);
+  line-height: 1.05;
+  max-width: 22ch;
+}
+h2 {
+  font-size: 1.6rem;
+}
+h3 {
+  font-size: 1.2rem;
+}
+p {
+  margin: 0;
+  max-width: var(--measure);
+  text-wrap: pretty;
+}
+
+.wrap {
+  max-width: var(--wide);
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+@media (min-width: 40rem) {
+  .wrap {
+    padding-inline: 2rem;
+  }
+}
+/* Vertical rhythm. --space is not inherited, so a nested .stack never picks up its parent's gap. */
+@property --space {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 16px; /* must be absolute: rem is rejected here */
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+}
+.stack > * {
+  margin: 0;
+}
+
+.lede {
+  font-size: 1.1875rem;
+  color: var(--ink-2);
+}
+.small {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 46rem;
+  font-size: 0.9375rem;
+}
+caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 0.5rem;
+}
+th,
+td {
+  text-align: left;
+  padding: 0.5rem 1rem 0.5rem 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+th {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+[id] {
+  scroll-margin-top: 1rem;
+}
+
+details > summary {
+  cursor: pointer;
+  color: var(--link);
+  font-size: 0.9375rem;
+  width: max-content;
+}
+details[open] > summary {
+  margin-bottom: 0.75rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Chart legends: line keys mirror the marks (solid = published, dashed = estimate). */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  color: var(--ink-2);
+}
+.key {
+  display: inline-block;
+  width: 1.25rem;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+  border-top: 2px solid var(--series-1);
+}
+.key-estimate {
+  border-top: 2px dashed var(--series-2);
+}
+.key-band {
+  height: 0.7rem;
+  border: 0;
+  background: var(--band);
+}
+
+/* Long-form text (methodology). */
+.prose {
+  --space: 1rem;
+}
+.prose h2 {
+  margin-top: 2.5rem;
+}
+.prose ul {
+  max-width: var(--measure);
+  padding-left: 1.25rem;
+  margin: 0;
+}
+.prose li + li {
+  margin-top: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

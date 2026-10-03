@@ -1,0 +1,68 @@
+---
+import { num, pct, month } from "../i18n";
+const { track } = Astro.props;
+const lang = "fr";
+---
+
+<section class="stack prose" aria-labelledby="how">
+  <h2 id="how">Comment l’estimation est construite</h2>
+  <p>
+    L’INSEE publie l’indice de la production industrielle environ 40 jours après la fin de chaque mois. Entre-temps,
+    d’autres données, publiées plus vite, renseignent déjà sur l’activité. Cette estimation les combine pour chiffrer
+    l’évolution du mois avant la publication officielle.
+  </p>
+  <ul>
+    <li>
+      <strong>Électricité.</strong> La consommation nationale publiée par RTE, corrigée de l’effet des températures,
+      du jour de la semaine et du mois de l’année : sans cette correction, un mois froid ressemblerait à un boom industriel.
+    </li>
+    <li><strong>Climat des affaires.</strong> L’indicateur synthétique des enquêtes de conjoncture de l’INSEE.</li>
+    <li><strong>Défaillances.</strong> Les ouvertures de procédures collectives publiées au BODACC.</li>
+    <li><strong>Taux d’intérêt.</strong> L’écart entre les taux à 10 ans français et allemand, publié par la BCE.</li>
+  </ul>
+  <p>
+    Un modèle linéaire régularisé (régression ridge) relie ces signaux à la variation mensuelle de la production.
+    Chaque donnée n’est utilisée qu’à partir de sa date de publication réelle : l’estimation d’un mois ne voit jamais
+    une donnée qui n’était pas encore connue.
+  </p>
+
+  <h2>Comment elle est testée</h2>
+  <p>
+    Pour chaque mois depuis {month(lang, track.from)}, le modèle est réentraîné uniquement sur les données disponibles
+    à cette date, puis comparé au chiffre publié ensuite par l’INSEE. Il est mis en concurrence avec une prévision naïve
+    qui prolonge la dernière évolution connue. Les mois de mars à juillet 2020 sont exclus de l’apprentissage : leurs
+    variations extrêmes faussaient les relations apprises.
+  </p>
+  <p>
+    Résultat, hors crise sanitaire : une erreur quadratique moyenne de {num(lang, track.rmse, 2)} point
+    contre {num(lang, track.rmse_ar, 2)} pour la prévision naïve, soit {pct(lang, (1 - track.ratio) * 100, 0, false)} de
+    mieux. Le test de Diebold-Mariano donne p = {num(lang, track.dm_p, 2)} : le gain est encourageant, mais pas
+    statistiquement établi au seuil de 5 %.
+  </p>
+
+  <h2>Limites connues</h2>
+  <ul>
+    <li>
+      <strong>Données révisées.</strong> L’INSEE révise ses chiffres passés, et le test utilise la dernière version. Les
+      scores ci-dessous sont donc un peu optimistes. Depuis octobre 2026, chaque publication est archivée telle quelle
+      pour mesurer les performances en temps réel.
+    </li>
+    <li>
+      <strong>Septembre.</strong> Depuis 2022, la consommation d’électricité corrigée baisse nettement chaque septembre,
+      probablement parce que les habitudes ont changé après la crise énergétique. L’estimation de septembre est sans doute
+      tirée vers le bas.
+    </li>
+    <li>
+      <strong>Le mois précédent.</strong> Le même modèle estime aussi le mois précédent, sans tirer parti du mois de
+      production déjà publié entre-temps.
+    </li>
+  </ul>
+
+  <h2>Sources et licences</h2>
+  <p>
+    RTE éCO2mix via l’ODRE, INSEE et BODACC (DILA) : Licence Ouverte / Etalab 2.0. Taux d’intérêt : Banque centrale
+    européenne. Températures : Open-Meteo, CC BY 4.0. Le code et l’historique complet des données sont publics sur
+    GitHub.
+  </p>
+</section>
+

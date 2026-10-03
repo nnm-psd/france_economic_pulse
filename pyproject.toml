@@ -13,6 +13,7 @@ dependencies = [
 [project.scripts]
 pipeline = "pipeline.__main__:main"
 backtest = "pipeline.model:main"
+publish = "pipeline.publish:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]

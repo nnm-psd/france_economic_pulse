@@ -15,4 +15,14 @@ uv run backtest     # walk-forward backtest + nowcast of unpublished months
 uv run pytest       # offline tests
 ```
 
+## Build the website
+
+Requires Node.js 22 or later.
+
+```sh
+uv run backtest && uv run publish   # refresh the site's data file
+cd site && npm install && npm run build   # static site in site/dist
+npm run preview                     # http://localhost:4321/france_economic_pulse/
+```
+
 Data sources: RTE éCO2mix (ODRE), INSEE, ECB, BODACC (DILA), Open-Meteo. See the architecture document for licences.

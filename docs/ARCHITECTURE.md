@@ -2,7 +2,7 @@
 
 A public website that tracks the French economy using open, regularly updated data. It publishes a machine-learning **nowcast** of French industrial production: an estimate made before INSEE publishes the official figure. The data refreshes automatically in the cloud. No one downloads data by hand.
 
-Status: phases 1 (data pipeline) and 2 (model) done; phase 3 (website) next. Last updated: 2026-10-03.
+Status: phases 1 (data pipeline), 2 (model) and 3 (website) done; phase 4 (automation and deploy) next. Last updated: 2026-10-03.
 Repository: https://github.com/nnm-psd/france_economic_pulse (public). Languages: French and English.
 
 ## 1. Overview
@@ -148,7 +148,8 @@ Over all months (COVID included), errors are dominated by 2020 and no model is m
 - **Published model: ridge.** Gradient boosting doesn't beat it, so per D10 it is kept only in the backtest table, for transparency.
 - **Honest claim for the site:** "Slightly more accurate than a naive benchmark and right on direction about 6 times in 10; the gain is suggestive, not statistically proven." Monthly IPI growth is mostly noise (standard deviation 1.3% in normal months).
 - **What carries signal:** weather-corrected electricity (correlation 0.33 with monthly growth in normal months). Business climate, insolvencies and the spread are near zero at a monthly horizon: they move slowly.
-- **Candidates for improvement,** each to be tested one at a time against this baseline: French public-holiday dummies in the weather correction; electricity consumption of large industrial users only (check that RTE publishes it openly); a 3-month growth target, which is less noisy and common in central-bank nowcasts.
+- **Known bias: September.** Weather-corrected electricity has dropped every September since 2022 (−3.0, −3.1, −2.3 and −3.4% in 2022–2026), against small changes before. The month effects are fitted on 2012–2026 as a whole, so the post-energy-crisis seasonal pattern isn't captured and September nowcasts are likely biased downward. Stated on the methodology page.
+- **Candidates for improvement,** each to be tested one at a time against this baseline: month effects fitted on recent years only (fixes the September bias); French public-holiday dummies in the weather correction; electricity consumption of large industrial users only (check that RTE publishes it openly); a 3-month growth target, which is less noisy and common in central-bank nowcasts.
 
 ## 6. Website
 
@@ -167,13 +168,15 @@ Over all months (COVID included), errors are dominated by 2020 and no model is m
 
 ### D14. Charts: Observable Plot
 
-- **Choice:** Observable Plot (from the D3 team), rendered in the browser from the published JSON.
+- **Choice:** Observable Plot (from the D3 team), rendered in the browser by one script (`site/src/scripts/charts.ts`) from data embedded in each chart's figure.
+- **Specs (from `dataviz`):** 2px lines, 9px end dots with a 2px surface ring, hairline grid, text only in ink colours, crosshair tooltip, legend whenever there are two or more series, and a data table under every chart (tooltips are mouse-only, so the table is the keyboard and screen-reader path).
+- **Palette check:** published figures blue `#2a78d6` and estimate orange `#eb6834` (dark mode `#3987e5` / `#d95926`) pass the colour-blindness and separation checks in both modes. Light-mode orange is 2.98:1 against the page, just under 3:1, so the estimate is also dashed and directly labelled.
 - **Why:** It's small, made for time series, and accessible SVG output is straightforward. Chart design follows the `dataviz` skill: one palette, works in light and dark mode, no information conveyed by colour alone.
 - **Rejected:** ECharts and Plotly, which are heavier, and Chart.js, whose canvas output is harder to make accessible.
 
 ### D15. The site reads files, not live APIs
 
-- **Choice:** The pipeline writes small JSON files to `site/public/data/` (chart-ready, under ~200 KB each), and the site reads only those. The JSON holds no text in either language: only codes, ISO dates and raw numbers. All labels come from the site (D19), so both languages share one data file.
+- **Choice:** `uv run publish` writes one JSON file (~25 KB) to `site/src/data/site.json`, which the pages import at build time, and a copy to `site/public/data/site.json` as a public download. No browser fetch is needed, so there's no loading state and no base-path issue for data. The JSON holds no text in either language: only codes, ISO dates and raw numbers. All labels come from the site (D19), so both languages share one data file.
 - **Why:**
   - Pages still load when a provider's API is down.
   - Every visitor sees the same consistent snapshot.
@@ -184,7 +187,8 @@ Over all months (COVID included), errors are dominated by 2020 and no model is m
 
 - **Routes:** `/` (French, default) and `/en/` (English), set with Astro's `i18n` config and `prefixDefaultLocale: false`. A switch on every page links to the same page in the other language.
 - **Interface text:** two dictionaries, `site/src/i18n/fr.json` and `en.json`, with the same keys, read through one small `t(key)` helper. A test fails the build if a key is missing from either file.
-- **Long text** (methodology, about): one Markdown file per language in an Astro content collection.
+- **Long text** (methodology): one Astro component per language (`MethodFr.astro`, `MethodEn.astro`), not Markdown, because the prose quotes live figures (error, p-value) that must come from the data rather than go stale.
+- **French typography:** a narrow no-break space before `%` and `:`, typographic apostrophes (’), month names and number formats from `Intl`.
 - **Numbers and dates:** formatted with the browser's `Intl.NumberFormat` and `Intl.DateTimeFormat` for `fr-FR` or `en-GB`. French output looks like `1 234,5` and `3 octobre 2026`. Charts use the same formatters for axes and tooltips.
 - **SEO:** `<html lang>`, an `hreflang` alternate link for each version, and one sitemap covering both.
 - **Rejected:** i18next and other translation libraries, which add runtime weight for three pages; automatic redirects based on browser language, which hurt SEO and annoy users who chose the other language.
@@ -205,6 +209,15 @@ Each page exists in French and English (D19).
 - **Performance:** a `web-quality-audit` (Lighthouse) score of at least 90 in every category. Largest Contentful Paint under 2.5 s, layout shift (CLS) under 0.1.
 - **Design:** visual direction set with `frontend-design` before any code: a plan for colour, type and layout tokens.
 - **Both languages:** every page passes these checks in French and English. French text runs about 20% longer, so layouts must not break.
+- **Result, 2026-10-03** (Lighthouse 12, mobile profile, local build): Performance 94–99, Accessibility 100, Best Practices 100, SEO 100 on all pages tested; LCP 1.7–1.8 s; CLS 0. The indicators page has the lowest performance score (TBT ~250 ms from drawing four charts on a 4× slowed CPU). Splitting the drawing into separate tasks didn't help, so it was left as is.
+- **`web-design-guidelines` review:** applied typographic apostrophes, no-break spaces, tabular figures in number columns, `translate="no"` on the brand, heading scroll margins and font preloads. Deliberately not applied: Title Case headings (wrong for French; sentence case used) and language auto-detection (rejected in D19).
+
+### D22. Visual design
+
+- **Concept:** the page is about the time gap between now and the official figure. The hero is a sentence in the conditional tense French statistical news uses for estimates ("La production industrielle *aurait reculé*…"), followed by a fan chart: published index in blue, then the estimate dashed in orange with its 80% band. No big-number tile, no cards.
+- **Type:** IBM Plex Sans Condensed 600 for headings, IBM Plex Sans for text: an engineering face for an industry subject, and the condensed width absorbs longer French headings. Fonts are self-hosted via Fontsource, not Google Fonts, so no visitor data goes to a third party (German courts have fined sites under GDPR for loading Google Fonts). The two above-the-fold faces are preloaded.
+- **Colour:** "bleu de travail" (workwear blue) ink `#1d2b44` on a cool off-white `#f5f7fa`; dark mode `#eef2f7` on `#141b26`, following the OS setting. The only loud colour is the estimate's orange.
+- **Layout:** left-aligned single column, text held to ~70 characters, charts full width. Vertical spacing uses flex `gap` with a non-inherited `--space` custom property, so nested sections don't pick up their parent's spacing.
 
 ## 7. Automation and hosting
 
@@ -234,7 +247,8 @@ france_economic_pulse/
 ├── data/
 │   ├── raw/<source>/<YYYY-MM>.parquet
 │   └── snapshots/ipi/<fetch-date>.parquet
-├── site/                       ← Astro project (src/i18n/fr.json, en.json for D19)
+├── site/                       ← Astro project: src/views (pages shared by both languages), src/pages (thin FR/EN routes),
+│                                 src/i18n (fr.json, en.json, formatters), src/scripts/charts.ts, src/data/site.json
 ├── .github/workflows/update.yml
 └── pyproject.toml / uv.lock
 ```
@@ -249,7 +263,7 @@ French public data (RTE via ODRE, INSEE, BODACC/DILA) is published under the Lic
 |---|---|---|
 | 1 ✅ | Fetch modules for RTE, INSEE, ECB and BODACC, plus a temperature source | `uv run pipeline` fetches only new rows twice in a row; tests pass. Verified 2026-10-03: run 2 added 0 rows and rewrote no files; 7 tests pass. |
 | 2 ✅ | Weather correction, features, AR(1) and ridge backtest | Walk-forward RMSE reported against AR(1); assumptions written up in this file. Done 2026-10-03: `uv run backtest`, results in D21; 9 tests pass. |
-| 3 | Astro site, version 1 (3 pages in French and English) | Audits in D17 pass locally in both languages |
+| 3 ✅ | Astro site, version 1 (3 pages in French and English) | Audits in D17 pass locally in both languages. Done 2026-10-03: see D17 results. |
 | 4 | Scheduled GitHub Actions run and Pages deploy | Two scheduled runs in a row succeed and the site updates |
 | 5 | Additions: GDELT tone, daily spread (Banque de France key), GDP target, custom domain | One at a time, each only if it improves the nowcast or the site |
 

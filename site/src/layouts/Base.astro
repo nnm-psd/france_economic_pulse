@@ -1,0 +1,143 @@
+---
+import "../styles/global.css";
+import data from "../data/site.json";
+import { t, day, url, pageUrl, other, routes, type Lang, type Page } from "../i18n";
+// Preload the two faces visible above the fold (headline and body), so the hero text paints in its final font.
+import headFont from "@fontsource/ibm-plex-sans-condensed/files/ibm-plex-sans-condensed-latin-600-normal.woff2?url";
+import bodyFont from "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2?url";
+
+interface Props {
+  lang: Lang;
+  page: Page;
+  title: string;
+  description: string;
+}
+const { lang, page, title, description } = Astro.props;
+const alt = other(lang);
+const abs = (p: Page, l: Lang) => new URL(pageUrl(p, l), Astro.site).href;
+const fullTitle = page === "overview" ? `${t(lang, "site.name")} | ${title}` : `${title} | ${t(lang, "site.name")}`;
+const nav = Object.keys(routes) as Page[];
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={abs(page, lang)} />
+    <link rel="alternate" hreflang={lang} href={abs(page, lang)} />
+    <link rel="alternate" hreflang={alt} href={abs(page, alt)} />
+    <link rel="alternate" hreflang="x-default" href={abs(page, "fr")} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content={lang === "fr" ? "fr_FR" : "en_GB"} />
+    <meta property="og:url" content={abs(page, lang)} />
+    <meta name="theme-color" content="#f5f7fa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141b26" media="(prefers-color-scheme: dark)" />
+    <link rel="preload" href={headFont} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={bodyFont} as="font" type="font/woff2" crossorigin />
+    <link rel="icon" href={url("favicon.svg")} type="image/svg+xml" />
+    <link rel="sitemap" href={url("sitemap-index.xml")} />
+  </head>
+  <body>
+    <a class="skip" href="#main">{t(lang, "nav.skip")}</a>
+    <header class="wrap site-header">
+      <a class="brand" href={pageUrl("overview", lang)} translate="no">{t(lang, "site.name")}</a>
+      <nav aria-label={lang === "fr" ? "Navigation principale" : "Main"}>
+        <ul>
+          {nav.map((p) => (
+            <li>
+              <a href={pageUrl(p, lang)} aria-current={p === page ? "page" : undefined}>
+                {t(lang, `nav.${p}`)}
+              </a>
+            </li>
+          ))}
+          <li class="switch">
+            <a href={pageUrl(page, alt)} hreflang={alt} lang={alt} aria-label={t(lang, "nav.switch_label")}>
+              {t(lang, "nav.switch")}
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </header>
+
+    <main id="main" class="wrap">
+      <slot />
+    </main>
+
+    <footer class="wrap site-footer stack small">
+      <p>
+        {t(lang, "footer.built", { date: day(lang, data.generated) })}{" "}
+        <a href="https://github.com/nnm-psd/france_economic_pulse">{t(lang, "footer.github")}</a>.{" "}
+        <a href={url("data/site.json")} download>{t(lang, "data.download")}</a>.
+      </p>
+      <p>{t(lang, "footer.disclaimer")}</p>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .skip {
+    position: absolute;
+    left: 1rem;
+    top: -3rem;
+    background: var(--ink);
+    color: var(--page);
+    padding: 0.5rem 0.75rem;
+    z-index: 1;
+  }
+  .skip:focus {
+    top: 0.5rem;
+  }
+  .site-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 2rem;
+    padding-block: 1.25rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .brand {
+    font-family: var(--font-head);
+    font-weight: 600;
+    font-size: 1.25rem;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  nav a {
+    color: var(--ink-2);
+    text-decoration: none;
+    padding-block: 0.25rem;
+  }
+  nav a:hover,
+  nav a[aria-current="page"] {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+  }
+  @media (min-width: 40rem) {
+    .switch {
+      padding-left: 1.5rem;
+      border-left: 1px solid var(--rule);
+    }
+  }
+  main {
+    padding-block: 2.5rem 4rem;
+  }
+  .site-footer {
+    padding-block: 2rem 3rem;
+    border-top: 1px solid var(--rule);
+  }
+</style>

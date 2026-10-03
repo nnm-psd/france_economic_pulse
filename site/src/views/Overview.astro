@@ -1,0 +1,101 @@
+---
+import Base from "../layouts/Base.astro";
+import Chart from "../components/Chart.astro";
+import Signals from "../components/Signals.astro";
+import data from "../data/site.json";
+import { t, month, day, pct, num, pageUrl, type Lang } from "../i18n";
+
+const { lang } = Astro.props as { lang: Lang };
+const latest = data.nowcast[data.nowcast.length - 1];
+const g = latest.g;
+const verb = Math.abs(g) < 0.05 ? "overview.flat" : g > 0 ? "overview.up" : "overview.down";
+const headline = t(lang, verb, { g: pct(lang, Math.abs(g), 1, false), month: month(lang, latest.m) });
+
+const track = data.track;
+const labels = { official: t(lang, "overview.official"), estimate: t(lang, "overview.estimate"), band: t(lang, "overview.band") };
+const recent = data.ipi.slice(-37);
+---
+
+<Base lang={lang} page="overview" title={t(lang, "overview.title")} description={t(lang, "overview.description")}>
+  <article class="stack" style="--space: 3rem">
+    <header class="stack hero" style="--space: 1rem">
+      <h1>{headline}</h1>
+      <p class="lede">
+        {t(lang, "overview.lede", {
+          date: day(lang, data.generated),
+          official_g: pct(lang, data.last_official.g),
+          official_month: month(lang, data.last_official.m),
+        })}
+      </p>
+    </header>
+
+    <Chart
+      lang={lang}
+      spec={{ kind: "level", lang, ipi: data.ipi, nowcast: data.nowcast, labels }}
+      title={t(lang, "overview.chart_title")}
+      description={t(lang, "overview.chart_desc")}
+      head={[t(lang, "data.month"), t(lang, "overview.official"), t(lang, "overview.estimate")]}
+      rows={[
+        ...recent.map((p) => [month(lang, p.m), num(lang, p.v, 1), ""]),
+        ...data.nowcast.map((p) => [month(lang, p.m), "", `${num(lang, p.level, 1)} (${num(lang, p.level_lo, 1)} – ${num(lang, p.level_hi, 1)})`]),
+      ]}
+      height={340}
+    >
+      <ul slot="legend" class="legend small">
+        <li><span class="key key-official"></span>{labels.official}</li>
+        <li><span class="key key-estimate"></span>{labels.estimate}</li>
+        <li><span class="key key-band"></span>{labels.band}</li>
+      </ul>
+    </Chart>
+
+    <section class="stack" aria-labelledby="pending">
+      <table>
+        <caption id="pending">{t(lang, "overview.table_caption")}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{t(lang, "overview.col_month")}</th>
+            <th scope="col" class="num">{t(lang, "overview.col_estimate")}</th>
+            <th scope="col" class="num">{t(lang, "overview.col_range")}</th>
+            <th scope="col">{t(lang, "overview.col_release")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.nowcast.map((n) => (
+            <tr>
+              <th scope="row">{month(lang, n.m)}</th>
+              <td class="num">{pct(lang, n.g)}</td>
+              <td class="num">{t(lang, "overview.range", { lo: pct(lang, n.lo), hi: pct(lang, n.hi) })}</td>
+              <td>{t(lang, "overview.release", { month: month(lang, n.release) })}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="stack" aria-labelledby="track">
+      <h2 id="track">{t(lang, "overview.track_title")}</h2>
+      <p>
+        {t(lang, "overview.track", {
+          n: track.n,
+          from: month(lang, track.from),
+          hit: num(lang, track.hit * 10, 0),
+          hit_ar: num(lang, track.hit_ar * 10, 0),
+          gain: pct(lang, (1 - track.ratio) * 100, 0, false),
+        })}
+      </p>
+      <p><a href={pageUrl("methodology", lang)}>{t(lang, "overview.track_link")}</a></p>
+    </section>
+
+    <section class="stack" aria-labelledby="signals" style="--space: 1.5rem">
+      <h2 id="signals">{t(lang, "overview.signals_title")}</h2>
+      <Signals lang={lang} />
+      <p><a href={pageUrl("indicators", lang)}>{t(lang, "overview.signals_link")}</a></p>
+    </section>
+  </article>
+</Base>
+
+<style>
+  .hero {
+    padding-top: 1rem;
+  }
+</style>

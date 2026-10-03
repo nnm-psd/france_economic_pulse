@@ -1,0 +1,48 @@
+---
+import Base from "../layouts/Base.astro";
+import Chart from "../components/Chart.astro";
+import data from "../data/site.json";
+import { INDICATORS } from "../indicators";
+import { t, month, num, latestDate, type Lang } from "../i18n";
+
+const { lang } = Astro.props as { lang: Lang };
+const latest = Object.fromEntries(data.sources.map((s) => [s.id, s.latest]));
+---
+
+<Base lang={lang} page="indicators" title={t(lang, "indicators.title")} description={t(lang, "indicators.description")}>
+  <article class="stack" style="--space: 3rem">
+    <header class="stack">
+      <h1>{t(lang, "indicators.title")}</h1>
+      <p class="lede">{t(lang, "indicators.intro")}</p>
+    </header>
+
+    <div class="grid">
+      {INDICATORS.map((ind) => {
+        const series = data.indicators[ind.key];
+        return (
+          <section class="stack" style="--space: 0.5rem">
+            <Chart
+              lang={lang}
+              level={2}
+              spec={{ kind: "line", lang, series, digits: ind.digits, reference: "reference" in ind ? ind.reference : undefined }}
+              title={t(lang, `ind.${ind.key}`)}
+              description={`${t(lang, `ind.${ind.key}.unit`)}. ${t(lang, `ind.${ind.key}.note`)}`}
+              head={[t(lang, "data.month"), t(lang, "data.value")]}
+              rows={[...series].reverse().map((p) => [month(lang, p.m), num(lang, p.v, ind.digits)])}
+              height={220}
+            />
+            <p class="small">{t(lang, "ind.source", { source: t(lang, `src.${ind.source}`), date: latestDate(lang, ind.source, latest[ind.source]) })}</p>
+          </section>
+        );
+      })}
+    </div>
+  </article>
+</Base>
+
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr));
+    gap: 3rem 3rem;
+  }
+</style>
