@@ -376,6 +376,7 @@ Modelled on the New York Fed Staff Nowcast's signature feature: show how each ne
   - **Runner pinned to `ubuntu-24.04`** (GitHub moves `ubuntu-latest` to 26.04 from 2026-10-19).
   - **Action versions** (latest major, checked 2026-10-03): `actions/checkout@v7`, `astral-sh/setup-uv@v7`, `actions/setup-node@v7`, `actions/upload-pages-artifact@v5`, `actions/deploy-pages@v5`.
 - **When a source fails:** the fetch step is allowed to fail. The pipeline still saves the sources that worked (D9), the model and site are rebuilt with the last good data for the failed source, the methodology page marks that source "late", and the site is deployed. The run then ends in failure, so GitHub emails an alert. A failure in the tests, the model or the build stops the run before deploying, and the previous site stays online.
+- **Retries:** every API call retries 3 times with back-off (2, 4, 8 s) on connection errors and 429/5xx, so one transient blip doesn't fail the run. A real outage still does (added 2026-10-03 after a transient CI failure).
 - **One-time setup (repo owner):** Settings → Pages → Build and deployment → Source: **GitHub Actions**. The workflow can't switch this on itself: `GITHUB_TOKEN` doesn't have admin rights.
 - **Why:** Free, no server to run, and the same repo holds the code, data history and site.
 - **Known limits:**

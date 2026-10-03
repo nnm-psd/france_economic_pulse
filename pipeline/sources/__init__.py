@@ -7,12 +7,18 @@ MAX_AGE: how old the newest stored point may be before the freshness check fails
 """
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 HEADERS = {"User-Agent": "france-economic-pulse (+https://github.com/nnm-psd/france_economic_pulse)"}
 
+# Providers occasionally time out or return a temporary error: retry 3 times (waits 2, 4, 8 s) before failing.
+session = requests.Session()
+session.mount("https://", HTTPAdapter(max_retries=Retry(total=3, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504])))
+
 
 def get(url: str, **params) -> str:
-    r = requests.get(url, params=params, headers=HEADERS, timeout=120)
+    r = session.get(url, params=params, headers=HEADERS, timeout=120)
     r.raise_for_status()
     r.encoding = "utf-8"
     return r.text.lstrip("﻿")
