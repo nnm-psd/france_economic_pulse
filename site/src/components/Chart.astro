@@ -10,14 +10,14 @@ interface Props {
   description: string;
   head: string[];
   rows: string[][];
-  height: number; // reserved before the chart draws, so nothing jumps (CLS)
+  height: number | string; // reserved before the chart draws, so nothing jumps (CLS); a string is any CSS length
   level?: 2 | 3;
 }
 const { lang, spec, title, description, head, rows, height, level = 2 } = Astro.props;
 const Heading = `h${level}`;
 ---
 
-<figure data-chart class="chart stack" style={`--space: 0.5rem; --h: ${height}px`}>
+<figure data-chart class="chart stack" style={`--space: 0.5rem; --h: ${typeof height === "number" ? `${height}px` : height}`}>
   <figcaption class="stack" style="--space: 0.25rem">
     <Heading class="chart-title">{title}</Heading>
     <p class="small">{description}</p>

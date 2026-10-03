@@ -9,7 +9,11 @@ type Spec =
   | { kind: "level"; lang: Lang; ipi: Point[]; nowcast: { m: string; level: number; level_lo: number; level_hi: number; g: number; lo: number; hi: number }[]; labels: Record<string, string> }
   | { kind: "line"; lang: Lang; series: Point[]; digits: number; reference?: number }
   | { kind: "backtest"; lang: Lang; rows: { m: string; actual: number; ridge: number }[]; labels: Record<string, string> }
-  | { kind: "contrib"; lang: Lang; rows: { label: string; v: number }[] };
+  | { kind: "contrib"; lang: Lang; rows: { label: string; v: number }[] }
+  | { kind: "scatter"; lang: Lang; rows: { m: string; actual: number; ridge: number }[]; labels: Record<string, string> }
+  | { kind: "rolling"; lang: Lang; rows: { m: string; ridge: number; ar: number }[]; labels: Record<string, string> }
+  | { kind: "hist"; lang: Lang; errors: number[]; labels: Record<string, string> }
+  | { kind: "weights"; lang: Lang; rows: { m: string; w: number[] }[]; names: string[] };
 
 const date = (m: string) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1, 1));
 const iso = (d: Date) => d.toISOString().slice(0, 7);
@@ -105,7 +109,7 @@ function contrib(s: Extract<Spec, { kind: "contrib" }>, width: number) {
     height: rows.length * 44 + 30,
     marginLeft: left,
     marginRight: 48,
-    style: { fontFamily: css("--font"), fontSize: "13px", color: css("--muted"), background: "transparent", overflow: "visible" },
+    style: plotStyle(),
     x: { domain: [-extent, extent], grid: true, label: null, ticks: 5, tickFormat: (v: number) => num(s.lang, v, 1) },
     y: { domain: rows.map((r) => r.label), label: null, axis: null },
     marks: [
@@ -119,7 +123,96 @@ function contrib(s: Extract<Spec, { kind: "contrib" }>, width: number) {
   });
 }
 
-const draw = { level, line, backtest, contrib } as Record<Spec["kind"], (s: any, w: number) => Element>;
+const plotStyle = () => ({ fontFamily: css("--font"), fontSize: "13px", color: css("--muted"), background: "transparent", overflow: "visible" });
+
+// Estimate vs published figure, one dot per month; the diagonal is a perfect estimate.
+function scatter(s: Extract<Spec, { kind: "scatter" }>, width: number) {
+  const ext = Math.ceil(Math.max(...s.rows.flatMap((r) => [Math.abs(r.actual), Math.abs(r.ridge)])));
+  const f = (v: number) => pct(s.lang, v, 1);
+  const size = Math.min(width, 520);
+  return Plot.plot({
+    width: size,
+    height: size,
+    marginLeft: 48,
+    marginBottom: 44,
+    style: plotStyle(),
+    x: { domain: [-ext, ext], grid: true, label: s.labels.x, tickFormat: (v: number) => pct(s.lang, v, 0) },
+    y: { domain: [-ext, ext], grid: true, label: s.labels.y, tickFormat: (v: number) => pct(s.lang, v, 0) },
+    marks: [
+      Plot.line([[-ext, -ext], [ext, ext]], { stroke: css("--baseline"), strokeWidth: 1.5 }),
+      Plot.dot(s.rows, { x: "actual", y: "ridge", r: 4, fill: css("--series-2"), stroke: css("--page"), strokeWidth: 1.5 }),
+      Plot.tip(s.rows, Plot.pointer({
+        x: "actual", y: "ridge", fill: css("--page"), stroke: css("--rule"),
+        title: (d) => `${month(s.lang, d.m)}\n${s.labels.actual}${colon(s.lang)}${f(d.actual)}\n${s.labels.estimate}${colon(s.lang)}${f(d.ridge)}`,
+      })),
+    ],
+  });
+}
+
+// Rolling 24-month RMSE: the estimate (dashed orange, as everywhere) against the naive forecast.
+function rolling(s: Extract<Spec, { kind: "rolling" }>, width: number) {
+  const rows = s.rows.map((r) => ({ x: date(r.m), ...r }));
+  const f = (v: number) => num(s.lang, v, 2);
+  // No end labels: the two lines finish close together, so the legend and tooltip carry identity.
+  return frame(s.lang, width, 260, (v) => num(s.lang, v, 1), [
+    Plot.lineY(rows, { x: "x", y: "ar", stroke: css("--series-3"), strokeWidth: 2 }),
+    Plot.lineY(rows, { x: "x", y: "ridge", stroke: css("--series-2"), strokeWidth: 2, strokeDasharray: "5,4" }),
+    Plot.ruleX(rows, Plot.pointerX({ x: "x", stroke: css("--baseline") })),
+    Plot.tip(rows, Plot.pointerX({
+      x: "x", y: "ridge", fill: css("--page"), stroke: css("--rule"),
+      title: (d) => `${month(s.lang, d.m)}\n${s.labels.estimate}${colon(s.lang)}${f(d.ridge)}\n${s.labels.ar}${colon(s.lang)}${f(d.ar)}`,
+    })),
+  ], true);
+}
+
+// Distribution of errors in 0.5-point bins.
+function hist(s: Extract<Spec, { kind: "hist" }>, width: number) {
+  return Plot.plot({
+    width,
+    height: 220,
+    marginLeft: 44,
+    style: plotStyle(),
+    x: { label: null, tickFormat: (v: number) => num(s.lang, v, 1) },
+    y: { grid: true, label: null, ticks: 4 },
+    marks: [
+      Plot.rectY(s.errors, Plot.binX({ y: "count" }, {
+        x: (d) => d, interval: 0.5, fill: css("--series-2"), insetLeft: 1, insetRight: 1, rx: 2,
+        tip: { fill: css("--page"), stroke: css("--rule") },
+      })),
+      Plot.ruleY([0], { stroke: css("--baseline") }),
+      Plot.ruleX([0], { stroke: css("--ink-2"), strokeDasharray: "2,3" }),
+    ],
+  });
+}
+
+// Small multiples: one panel per input, shared scales so the weights compare directly.
+function weights(s: Extract<Spec, { kind: "weights" }>, width: number) {
+  const long = s.rows.flatMap((r) => r.w.map((w, j) => ({ x: date(r.m), w, name: s.names[j] })));
+  const ext = Math.max(...long.map((d) => Math.abs(d.w))) * 1.1;
+  const tick = Math.round(ext * 6) / 10; // one tick each side, clear of the panel title
+  const f = (v: number) => num(s.lang, v, 3);
+  return Plot.plot({
+    width,
+    height: s.names.length * 78 + 30,
+    marginLeft: 48,
+    marginRight: 16,
+    style: plotStyle(),
+    x: { type: "utc", ticks: Math.max(2, Math.floor(width / 90)), tickFormat: (d: Date) => String(d.getUTCFullYear()), label: null },
+    y: { domain: [-ext, ext], ticks: [-tick, 0, tick], grid: true, label: null, tickFormat: (v: number) => num(s.lang, v, 1) },
+    fy: { domain: s.names, axis: null, label: null, padding: 0.35 },
+    marks: [
+      Plot.ruleY([0], { stroke: css("--baseline") }),
+      Plot.lineY(long, { x: "x", y: "w", fy: "name", stroke: css("--ink-2"), strokeWidth: 2 }),
+      Plot.text(s.names.map((name) => ({ name })), { fy: "name", text: "name", frameAnchor: "top-left", dy: -12, fill: css("--ink"), fontWeight: 600 }),
+      Plot.tip(long, Plot.pointerX({
+        x: "x", y: "w", fy: "name", fill: css("--page"), stroke: css("--rule"),
+        title: (d) => `${d.name}\n${month(s.lang, iso(d.x))}${colon(s.lang)}${f(d.w)}`,
+      })),
+    ],
+  });
+}
+
+const draw = { level, line, backtest, contrib, scatter, rolling, hist, weights } as Record<Spec["kind"], (s: any, w: number) => Element>;
 
 function render(fig: HTMLElement, width: number) {
   tokens = getComputedStyle(document.documentElement);
@@ -142,5 +235,18 @@ const observer = new ResizeObserver((entries) => {
     }
   }
 });
-figures.forEach((fig) => observer.observe(fig.querySelector(".plot")!));
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => figures.forEach((f) => render(f, lastWidth.get(f) ?? 0)));
+// Draw a chart only when it comes near the screen, so charts further down don't block the first paint.
+const nearScreen = new IntersectionObserver(
+  (entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      nearScreen.unobserve(e.target);
+      observer.observe(e.target.querySelector(".plot")!);
+    }
+  },
+  { rootMargin: "300px 0px" },
+);
+figures.forEach((fig) => nearScreen.observe(fig));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () =>
+  figures.filter((f) => lastWidth.has(f)).forEach((f) => render(f, lastWidth.get(f)!)),
+);

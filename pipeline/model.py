@@ -35,23 +35,29 @@ def training_rows(f: pd.DataFrame, t: pd.Period) -> pd.DataFrame:
     return f.loc[: t - 2].drop(COVID, errors="ignore").dropna(subset=["y", *FEATURES])
 
 
-def predict(f: pd.DataFrame, train: pd.DataFrame, target: pd.DataFrame) -> dict[str, np.ndarray]:
-    out = {}
-    for name, (cols, make) in MODELS.items():
-        out[name] = make().fit(train[cols], train["y"]).predict(target[cols])
-    return out
+def fit(train: pd.DataFrame) -> dict:
+    return {name: make().fit(train[cols], train["y"]) for name, (cols, make) in MODELS.items()}
+
+
+def predict(models: dict, target: pd.DataFrame) -> dict[str, np.ndarray]:
+    return {name: m.predict(target[MODELS[name][0]]) for name, m in models.items()}
 
 
 def backtest(raw) -> pd.DataFrame:
-    """Expanding window: for each month t, refit everything on data available at the start of t+1."""
+    """Expanding window: for each month t, refit everything on data available at the start of t+1.
+
+    Also keeps each refit's standardised ridge weights (w_<feature>), to show how stable the model is.
+    """
     last = raw["insee"].query("series == 'ipi_industry'")["date"].max().to_period("M")
     rows = []
     for t in pd.period_range(START, last, freq="M"):
         f = monthly_features(raw, fit_until=(t + 1).start_time)
         if f.loc[[t], FEATURES].isna().any(axis=None):
             continue
-        preds = predict(f, training_rows(f, t), f.loc[[t]])
-        rows.append({"month": t, "actual": f.at[t, "y"], **{k: v[0] for k, v in preds.items()}})
+        models = fit(training_rows(f, t))
+        preds = predict(models, f.loc[[t]])
+        weights = dict(zip((f"w_{c}" for c in FEATURES), models["ridge"][-1].coef_))
+        rows.append({"month": t, "actual": f.at[t, "y"], **{k: v[0] for k, v in preds.items()}, **weights})
     return pd.DataFrame(rows).set_index("month")
 
 
@@ -64,11 +70,41 @@ def scorecard(bt: pd.DataFrame) -> pd.DataFrame:
         dm_p = pd.Series(norm.sf(d.mean() / (d.std() / np.sqrt(len(d)))), index=d.columns)
         return pd.DataFrame({
             "rmse": rmse,
+            "mae": err.abs().mean(),
+            "bias": err.mean(),  # mean of estimate - actual: > 0 means it overestimates
+            "r2_vs_ar": 1 - (err**2).sum() / (err["ar"] ** 2).sum(),  # out-of-sample R² against the benchmark
             "rmse_vs_ar": rmse / rmse["ar"],
             "dm_p_vs_ar": dm_p.where(d.std() > 0),
             "direction_hit": df[list(MODELS)].apply(lambda p: (np.sign(p) == np.sign(df["actual"])).mean()),
         })
     return pd.concat({"all months": score(bt), "excl. Mar-Jul 2020": score(bt.drop(COVID, errors="ignore"))})
+
+
+def diagnostics(bt: pd.DataFrame) -> dict:
+    """Checks shown on the website beyond the scorecard (normal months, COVID excluded).
+
+    coverage: share of months whose actual figure fell inside the 80% range, where each month's range
+              uses only errors already known at the time (published by t-2), at least 24 of them.
+    rolling:  24-month rolling RMSE of ridge and AR(1), to see whether accuracy holds over time.
+    errors:   ridge errors (estimate - actual), for their distribution.
+    weights:  standardised ridge weights from every refit, to see how stable the model is.
+    """
+    normal = bt.drop(COVID, errors="ignore")
+    err = normal["ridge"] - normal["actual"]
+    q = pd.Series(
+        [err[err.index <= t - 2].abs().quantile(0.8) if (err.index <= t - 2).sum() >= 24 else np.nan for t in normal.index],
+        index=normal.index,
+    )
+    inside = (err.abs() <= q)[q.notna()]
+    sq = normal[["ridge", "ar"]].sub(normal["actual"], axis=0) ** 2
+    rolling = np.sqrt(sq.rolling(24).mean()).dropna()
+    wcols = [f"w_{c}" for c in FEATURES]
+    return {
+        "coverage": {"share": float(inside.mean()), "n": int(len(inside)), "from": str(inside.index.min())},
+        "rolling": [{"m": str(m), "ridge": round(r.ridge, 3), "ar": round(r.ar, 3)} for m, r in rolling.iterrows()],
+        "errors": [round(float(e), 3) for e in err],
+        "weights": [{"m": str(m), "w": [round(float(v), 4) for v in row]} for m, row in bt[wcols].iterrows()],
+    }
 
 
 def final_sets(raw) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -80,7 +116,7 @@ def final_sets(raw) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 def nowcast(raw) -> pd.DataFrame:
     """Models refitted on everything published, applied to months with features but no IPI yet."""
     f, train, pending = final_sets(raw)
-    return pd.DataFrame(predict(f, train, pending), index=pending.index)
+    return pd.DataFrame(predict(fit(train), pending), index=pending.index)
 
 
 def explain(raw) -> dict:

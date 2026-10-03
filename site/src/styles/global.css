@@ -16,6 +16,7 @@
   --link: #2b4c7e;
   --series-1: #2a78d6; /* published figures */
   --series-2: #eb6834; /* estimate */
+  --series-3: #1baf7a; /* naive forecast */
   --band: rgb(235 104 52 / 0.14);
   --up: #2a78d6; /* contribution pushes the estimate up */
   --down: #e34948;
@@ -39,6 +40,7 @@
     --link: #9cc1f0;
     --series-1: #3987e5;
     --series-2: #d95926;
+    --series-3: #199e70;
     --band: rgb(217 89 38 / 0.22);
     --up: #3987e5;
     --down: #e66767;
@@ -208,6 +210,9 @@ details[open] > summary {
 }
 .key-estimate {
   border-top: 2px dashed var(--series-2);
+}
+.key-naive {
+  border-top: 2px solid var(--series-3);
 }
 .key-up,
 .key-down {

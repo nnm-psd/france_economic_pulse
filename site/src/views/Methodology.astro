@@ -3,6 +3,7 @@ import Base from "../layouts/Base.astro";
 import Chart from "../components/Chart.astro";
 import MethodFr from "../components/MethodFr.astro";
 import MethodEn from "../components/MethodEn.astro";
+import Diagnostics from "../components/Diagnostics.astro";
 import data from "../data/site.json";
 import { t, month, pct, num, latestDate, type Lang } from "../i18n";
 
@@ -65,6 +66,8 @@ const sources = data.sources.map((s) => ({
         </tr>
       </tbody>
     </table>
+
+    <Diagnostics lang={lang} />
 
     <section class="stack" aria-labelledby="fresh">
       <h2 id="fresh">{t(lang, "fresh.title")}</h2>

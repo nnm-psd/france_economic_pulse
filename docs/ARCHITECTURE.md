@@ -145,6 +145,19 @@ Walk-forward backtest, January 2016 to July 2026 (127 months). Target: monthly g
 
 Over all months (COVID included), errors are dominated by 2020 and no model is meaningfully better (RMSE 3.6–3.7).
 
+**Further diagnostics** (normal months, computed by `model.diagnostics()` and shown on the Method page):
+
+| | Ridge | AR(1) | Gradient boosting |
+|---|---|---|---|
+| MAE | 0.98 | 1.02 | 1.07 |
+| Mean bias (estimate − actual) | −0.06 | −0.07 | −0.03 |
+| Out-of-sample R² vs AR(1) | +9.4% | — | −3.5% |
+
+- **The 80% range is well calibrated:** for each month, the range is built only from errors known at the time (published by *t−2*, at least 24 of them). Over 97 months since February 2018, the actual figure fell inside it **80.4%** of the time.
+- **The gain hasn't held recently:** over the latest 24 months, ridge's rolling RMSE is 0.95 against AR(1)'s 0.93. The page says so.
+- **The estimate is cautious:** the estimate-vs-actual scatter is flatter than the diagonal. That's expected from ridge shrinkage with a noisy target.
+- **The weights are stable:** across all 127 refits, weather-corrected electricity is the only large weight and it never changes sign. The other weights stay near zero.
+
 - **Published model: ridge.** Gradient boosting doesn't beat it, so per D10 it is kept only in the backtest table, for transparency.
 - **Honest claim for the site:** "Slightly more accurate than a naive benchmark and right on direction about 6 times in 10; the gain is suggestive, not statistically proven." Monthly IPI growth is mostly noise (standard deviation 1.3% in normal months).
 - **What carries signal:** weather-corrected electricity (correlation 0.33 with monthly growth in normal months). Business climate, insolvencies and the spread are near zero at a monthly horizon: they move slowly.
@@ -170,7 +183,9 @@ Over all months (COVID included), errors are dominated by 2020 and no model is m
 
 - **Choice:** Observable Plot (from the D3 team), rendered in the browser by one script (`site/src/scripts/charts.ts`) from data embedded in each chart's figure.
 - **Specs (from `dataviz`):** 2px lines, 9px end dots with a 2px surface ring, hairline grid, text only in ink colours, crosshair tooltip, legend whenever there are two or more series, and a data table under every chart (tooltips are mouse-only, so the table is the keyboard and screen-reader path).
-- **Palette check:** published figures blue `#2a78d6` and estimate orange `#eb6834` (dark mode `#3987e5` / `#d95926`) pass the colour-blindness and separation checks in both modes. Light-mode orange is 2.98:1 against the page, just under 3:1, so the estimate is also dashed and directly labelled.
+- **Palette check:** published figures blue `#2a78d6` and estimate orange `#eb6834` (dark mode `#3987e5` / `#d95926`) pass the colour-blindness and separation checks in both modes. Light-mode orange is 2.98:1 against the page, just under 3:1, so the estimate is also dashed and directly labelled. The naive forecast is aqua `#1baf7a` / `#199e70` (passes next to orange; 2.62:1 in light mode, so it has a legend and a table). Contributions use the diverging pair blue "pushes up" and red `#e34948` / `#e66767` "pushes down".
+- **Colour meanings are the same on every page:** blue = published by INSEE, dashed orange = the estimate (ridge), aqua = naive forecast. Single-series diagnostic charts use orange because they describe the estimate; the weights use neutral ink.
+- **Charts are drawn only when they come near the screen** (IntersectionObserver, 300 px ahead). Charts below the fold don't block the first paint. This took the methodology page, with 5 charts, from Performance 88 to 99.
 - **Why:** It's small, made for time series, and accessible SVG output is straightforward. Chart design follows the `dataviz` skill: one palette, works in light and dark mode, no information conveyed by colour alone.
 - **Rejected:** ECharts and Plotly, which are heavier, and Chart.js, whose canvas output is harder to make accessible.
 
@@ -196,9 +211,9 @@ Over all months (COVID included), errors are dominated by 2020 and no model is m
 
 ### D16. Pages for version 1
 
-1. **Overview:** the latest nowcast compared with the last official figure, and a freshness date for each source.
+1. **Overview:** the latest nowcast compared with the last official figure, the track record in one paragraph, **the site's four objectives** (anticipate, state the uncertainty, show everything, make public data useful) and the latest value of each signal.
 2. **Indicators:** one chart per feature, with source and update date.
-3. **Methodology and track record:** the model, its error history, the data vintages warning (D8), and attribution.
+3. **Methodology and track record:** the model, its error history, the data vintages warning (D8), attribution, and **model diagnostics** (all metrics for all three models, interval calibration, estimate vs actual, rolling error, error distribution and weight stability; see D21).
 4. **Model** (`/modele/`, `/en/model/`, added 2026-10-03): every formula with today's coefficients, the full calculation of the latest nowcast, and the code that runs. See D23.
 
 Each page exists in French and English (D19).
@@ -210,7 +225,7 @@ Each page exists in French and English (D19).
 - **Performance:** a `web-quality-audit` (Lighthouse) score of at least 90 in every category. Largest Contentful Paint under 2.5 s, layout shift (CLS) under 0.1.
 - **Design:** visual direction set with `frontend-design` before any code: a plan for colour, type and layout tokens.
 - **Both languages:** every page passes these checks in French and English. French text runs about 20% longer, so layouts must not break.
-- **Result, 2026-10-03** (Lighthouse 12, mobile profile, local build): Performance 94–99, Accessibility 100, Best Practices 100, SEO 100 on all pages tested; LCP 1.7–1.8 s; CLS 0. The indicators page has the lowest performance score (TBT ~250 ms from drawing four charts on a 4× slowed CPU). Splitting the drawing into separate tasks didn't help, so it was left as is.
+- **Result, 2026-10-03** (Lighthouse 12, mobile profile, local build), after adding the diagnostics and lazy chart drawing: Performance 97–99, Accessibility 100, Best Practices 100, SEO 100 on every page in both languages; LCP 1.8–2.3 s; CLS 0; blocking time 0–80 ms. Before lazy drawing, the indicators page scored 94–96 and the methodology page 88–89.
 - **`web-design-guidelines` review:** applied typographic apostrophes, no-break spaces, tabular figures in number columns, `translate="no"` on the brand, heading scroll margins and font preloads. Deliberately not applied: Title Case headings (wrong for French; sentence case used) and language auto-detection (rejected in D19).
 
 ### D22. Visual design

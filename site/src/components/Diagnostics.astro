@@ -1,0 +1,140 @@
+---
+// Model diagnostics for the Method page: every metric for every model, interval calibration,
+// estimate vs actual, rolling error, error distribution and weight stability. All from site.json.
+import Chart from "./Chart.astro";
+import data from "../data/site.json";
+import { t, month, num, pct, type Lang } from "../i18n";
+
+const { lang } = Astro.props as { lang: Lang };
+const g = data.diagnostics;
+const scores = data.scores.normal;
+const normal = data.backtest.filter((r) => !(r.m >= "2020-03" && r.m <= "2020-07"));
+const signed = (v: number, d = 2) =>
+  new Intl.NumberFormat(lang === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: d, maximumFractionDigits: d, signDisplay: "exceptZero" }).format(v);
+const ridge = scores.find((s) => s.model === "ridge")!;
+const last = g.rolling[g.rolling.length - 1];
+const names = data.model.features.map((f) => t(lang, `feat.${f.name}`));
+
+// Histogram table: counts per 0.5-point bin.
+const bins = new Map<number, number>();
+for (const e of g.errors) bins.set(Math.floor(e / 0.5) * 0.5, (bins.get(Math.floor(e / 0.5) * 0.5) ?? 0) + 1);
+const binRows = [...bins.entries()].sort((a, b) => a[0] - b[0]);
+---
+
+<section class="stack" style="--space: 2rem" aria-labelledby="diag">
+  <div class="stack">
+    <h2 id="diag">{t(lang, "diag.title")}</h2>
+    <p>{t(lang, "diag.intro")}</p>
+  </div>
+
+  <div class="stack">
+    <div class="table-scroll">
+      <table class="scores">
+        <caption>{t(lang, "diag.table_caption")}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{t(lang, "method.col_model")}</th>
+            <th scope="col" class="num">{t(lang, "method.col_rmse")}</th>
+            <th scope="col" class="num">{t(lang, "diag.col_mae")}</th>
+            <th scope="col" class="num">{t(lang, "diag.col_bias")}</th>
+            <th scope="col" class="num">{t(lang, "diag.col_r2")}</th>
+            <th scope="col" class="num">{t(lang, "method.col_hit")}</th>
+            <th scope="col" class="num">{t(lang, "diag.col_dm")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {scores.map((s) => (
+            <tr>
+              <th scope="row">{t(lang, `diag.model.${s.model}`)}</th>
+              <td class="num">{num(lang, s.rmse, 2)}</td>
+              <td class="num">{num(lang, s.mae, 2)}</td>
+              <td class="num">{signed(s.bias)}</td>
+              <td class="num">{s.model === "ar" ? "—" : pct(lang, s.r2_vs_ar * 100, 1)}</td>
+              <td class="num">{pct(lang, s.direction_hit * 100, 0, false)}</td>
+              <td class="num">{s.dm_p_vs_ar === null ? "—" : num(lang, s.dm_p_vs_ar, 2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="small">{t(lang, "diag.table_note")}</p>
+  </div>
+
+  <div class="stack">
+    <h3>{t(lang, "diag.coverage_title")}</h3>
+    <p>
+      {t(lang, "diag.coverage", { n: g.coverage.n, from: month(lang, g.coverage.from), share: pct(lang, g.coverage.share * 100, 0, false) })}
+    </p>
+  </div>
+
+  <Chart
+    lang={lang}
+    level={3}
+    spec={{
+      kind: "scatter",
+      lang,
+      rows: normal,
+      labels: { x: t(lang, "diag.axis_actual"), y: t(lang, "diag.axis_estimate"), actual: t(lang, "method.actual"), estimate: t(lang, "method.estimate") },
+    }}
+    title={t(lang, "diag.scatter_title")}
+    description={t(lang, "diag.scatter_desc")}
+    head={[t(lang, "data.month"), t(lang, "method.actual"), t(lang, "method.estimate")]}
+    rows={[...normal].reverse().map((r) => [month(lang, r.m), pct(lang, r.actual), pct(lang, r.ridge)])}
+    height="min(520px, calc(100vw - 2rem))"
+  />
+
+  <Chart
+    lang={lang}
+    level={3}
+    spec={{ kind: "rolling", lang, rows: g.rolling, labels: { estimate: t(lang, "method.estimate"), ar: t(lang, "method.ar") } }}
+    title={t(lang, "diag.rolling_title")}
+    description={t(lang, "diag.rolling_desc")}
+    head={[t(lang, "data.month"), t(lang, "method.estimate"), t(lang, "method.ar")]}
+    rows={[...g.rolling].reverse().map((r) => [month(lang, r.m), num(lang, r.ridge, 2), num(lang, r.ar, 2)])}
+    height={260}
+  >
+    <ul slot="legend" class="legend small">
+      <li><span class="key key-estimate"></span>{t(lang, "method.estimate")}</li>
+      <li><span class="key key-naive"></span>{t(lang, "method.ar")}</li>
+    </ul>
+  </Chart>
+  <p>
+    {t(lang, last.ridge <= last.ar ? "diag.recent_better" : "diag.recent_worse", { rmse: num(lang, last.ridge, 2), rmse_ar: num(lang, last.ar, 2) })}
+  </p>
+
+  <Chart
+    lang={lang}
+    level={3}
+    spec={{ kind: "hist", lang, errors: g.errors, labels: {} }}
+    title={t(lang, "diag.hist_title")}
+    description={t(lang, "diag.hist_desc", { bias: signed(ridge.bias) })}
+    head={[t(lang, "diag.col_error"), t(lang, "diag.hist_count")]}
+    rows={binRows.map(([lo, c]) => [t(lang, "diag.hist_range", { lo: num(lang, lo, 1), hi: num(lang, lo + 0.5, 1) }), String(c)])}
+    height={220}
+  />
+
+  <Chart
+    lang={lang}
+    level={3}
+    spec={{ kind: "weights", lang, rows: g.weights, names }}
+    title={t(lang, "diag.weights_title")}
+    description={t(lang, "diag.weights_desc", { from: month(lang, g.weights[0].m) })}
+    head={[t(lang, "data.month"), ...names]}
+    rows={[...g.weights].reverse().map((r) => [month(lang, r.m), ...r.w.map((w) => signed(w, 3))])}
+    height={names.length * 78 + 30}
+  />
+</section>
+
+<style>
+  .table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  table.scores {
+    max-width: 58rem;
+  }
+  tbody th {
+    font-weight: 400;
+    color: var(--ink);
+  }
+</style>

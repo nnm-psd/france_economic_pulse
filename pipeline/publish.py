@@ -14,7 +14,7 @@ import pandas as pd
 
 from . import store
 from .features import corrected_electricity, daily_electricity, load_raw, monthly_features
-from .model import COVID, explain, nowcast, scorecard
+from .model import COVID, MODELS, diagnostics, explain, nowcast, scorecard
 from .sources import bodacc, ecb, insee, rte, weather
 
 SITE = Path(__file__).resolve().parent.parent / "site"
@@ -72,9 +72,15 @@ def build() -> dict:
             "q80": round(q, 2),
         },
         "backtest": [
-            {"m": str(m), "actual": round(r.actual, 2), "ridge": round(r.ridge, 2), "ar": round(r.ar, 2)}
+            {"m": str(m), "actual": round(r.actual, 2), "ridge": round(r.ridge, 2), "ar": round(r.ar, 2), "gbm": round(r.gbm, 2)}
             for m, r in bt.iterrows()
         ],
+        # Every model, every metric, for normal months and for all months (D21).
+        "scores": {
+            period: [{"model": name, **{k: None if pd.isna(v) else round(float(v), 4) for k, v in table.loc[name].items()}} for name in MODELS]
+            for period, table in (("normal", scorecard(bt).loc["excl. Mar-Jul 2020"]), ("all", scorecard(bt).loc["all months"]))
+        },
+        "diagnostics": diagnostics(bt),
         "indicators": {
             "electricity": points(elec[SINCE:], 2),
             "climate": points(f["climate"][SINCE:] + 100, 1),
