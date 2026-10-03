@@ -1,7 +1,7 @@
 ---
 import "../styles/global.css";
 import data from "../data/site.json";
-import { t, day, url, pageUrl, other, routes, type Lang, type Page } from "../i18n";
+import { t, day, url, pageUrl, other, NAV, type Lang, type Page } from "../i18n";
 // Preload the two faces visible above the fold (headline and body), so the hero text paints in its final font.
 import headFont from "@fontsource/ibm-plex-sans-condensed/files/ibm-plex-sans-condensed-latin-600-normal.woff2?url";
 import bodyFont from "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2?url";
@@ -16,7 +16,7 @@ const { lang, page, title, description } = Astro.props;
 const alt = other(lang);
 const abs = (p: Page, l: Lang) => new URL(pageUrl(p, l), Astro.site).href;
 const fullTitle = page === "overview" ? `${t(lang, "site.name")} | ${title}` : `${title} | ${t(lang, "site.name")}`;
-const nav = Object.keys(routes) as Page[];
+const nav = NAV;
 const ogImage = new URL(url(lang === "fr" ? "og.png" : "en/og.png"), Astro.site).href;
 
 // schema.org Dataset on the home page, so the data can be found in Google Dataset Search.
@@ -110,6 +110,7 @@ const dataset = page === "overview" && {
         {t(lang, "footer.licences")} <a href="https://github.com/nnm-psd/france_economic_pulse/blob/main/LICENSE">MIT</a>{t(lang, "footer.data")}{" "}
         <a href="https://github.com/nnm-psd/france_economic_pulse/blob/main/LICENSE-DATA.md">CC BY 4.0</a>.
       </p>
+      <p><a href={pageUrl("gdp", lang)}>{t(lang, "gdp.link")}</a></p>
       <p>{t(lang, "footer.disclaimer")}</p>
     </footer>
   </body>

@@ -16,3 +16,8 @@ def test_quarterly_uses_complete_quarters_and_log_growth():
     assert np.isclose(q.at[pd.Period("2025Q2", "Q"), "ipi_q"], 100 * np.log(102 / 100))
     assert np.isclose(q.at[pd.Period("2025Q2", "Q"), "y"], 100 * np.log(101 / 100))
     assert pd.Period("2025Q3", "Q") not in q.index  # incomplete quarter (2 of 3 months): left out entirely
+
+
+def test_expected_release_is_last_business_day_of_next_month():
+    assert gdp_model.expected_release(pd.Period("2026Q3", "Q")) == "2026-10-30"  # 31 Oct is a Saturday
+    assert gdp_model.expected_release(pd.Period("2025Q4", "Q")) == "2026-01-30"

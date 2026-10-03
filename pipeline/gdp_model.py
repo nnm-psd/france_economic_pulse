@@ -121,6 +121,12 @@ def scores(bt: pd.DataFrame) -> dict:
     }
 
 
+def expected_release(q: pd.Period) -> str:
+    """INSEE's first GDP estimate: end of the first month after the quarter (last business day)."""
+    first_month_after = q.asfreq("M", "end") + 1
+    return pd.offsets.BMonthEnd().rollforward(first_month_after.start_time).date().isoformat()
+
+
 def nowcast(raw, estimated_ipi: dict[pd.Period, float]) -> tuple[pd.DataFrame, dict]:
     """Quarters INSEE hasn't published whose 3 months are published or estimated by the monthly nowcast.
 

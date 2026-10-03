@@ -333,6 +333,18 @@ Modelled on the New York Fed Staff Nowcast's signature feature: show how each ne
 - **Reading:** quarterly French GDP growth since 2016 has been small and smooth (standard deviation ~0.33 points), and last quarter's growth already captures most of what is predictable. Survey levels add little at this horizon. The one input that helps, industrial production, loses its edge when the quarter's last month has to be estimated (D31).
 - **What could still work** (not pursued without the owner's go-ahead): waiting for the third month (a nowcast published after INSEE's IPI release, about 5 days after the GDP flash, would be pointless), or richer real-time data that isn't freely available (card spending, as the Banque de France uses).
 
+### D33. Optional experimental GDP page (owner's decision, 2026-10-03)
+
+- **Where:** `/pib/` and `/en/gdp/`, "PIB (expérimental)" / "GDP (experimental)". **Not in the main menu or on the home page**, which stay on the monthly industrial production nowcast. Linked from every footer and from the Method page. The menu is now an explicit list (`NAV` in `site/src/i18n/index.ts`), so optional pages can have routes without menu entries.
+- **What it shows:**
+  - a warning box: none of the models does *significantly* better than a naive forecast;
+  - the range of estimates for the open quarter (Q3 2026: +0.25% to +0.38%) and INSEE's expected first-estimate date: the last business day of the month after the quarter, `gdp_model.expected_release`, tested;
+  - a table with every model's estimate, past RMSE, direction and p against AR(1), with no single headline number;
+  - a chart of published GDP growth against the best variant and the naive forecast since 2016, with lines broken over 2020–2021;
+  - how it's built, why it doesn't work yet, and what could change that.
+- **Data:** `publish.gdp_experimental` runs `gdp_model.nowcast` with unpublished months of industrial production filled by the monthly nowcast's levels, and attaches `gdp_model.scores` and the backtest. CSV `gdp_backtest.csv`. The daily workflow now runs `uv run gdp-backtest` (about 5 s), so the page stays current. If a model ever takes a significant lead, the table shows it.
+- **Audit:** Performance 99, Accessibility 100, Best Practices 100, SEO 100 in both languages.
+
 ### D30. Downloads and citation
 
 - **CSV:** `publish` writes one file per series to `site/public/data/csv/` (`ipi`, `electricity`, `climate`, `insolvencies`, `spread`, `backtest`, `nowcasts`). Each chart links its file ("Download as CSV"), under CC BY 4.0 (D28).
@@ -423,5 +435,5 @@ Still open: analytics (a cookie-free service such as GoatCounter needs an accoun
 
 GDP nowcast (D31), owner to choose:
 1. Keep it unpublished until it beats AR(1). The monthly nowcast is the bottleneck, so improving it helps both.
-2. Publish it as "experimental", with the benchmark result shown prominently.
+2. ~~Publish it as "experimental"~~: done 2026-10-03 as an optional page (D33).
 3. ~~Add services data and retest~~: done 2026-10-03, no significant gain (D32).

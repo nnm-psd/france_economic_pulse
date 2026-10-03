@@ -7,7 +7,7 @@ import Diagnostics from "../components/Diagnostics.astro";
 import LiveRecord from "../components/LiveRecord.astro";
 import { sources } from "../fresh";
 import data from "../data/site.json";
-import { t, month, pct, num, latestDate, type Lang } from "../i18n";
+import { t, month, pct, num, latestDate, pageUrl, type Lang } from "../i18n";
 
 const { lang } = Astro.props as { lang: Lang };
 const Method = lang === "fr" ? MethodFr : MethodEn;
@@ -68,6 +68,8 @@ const track = data.track;
     </table>
 
     <Diagnostics lang={lang} />
+
+    <p><a href={pageUrl("gdp", lang)}>{t(lang, "gdp.link")}</a></p>
 
     <section class="stack" aria-labelledby="fresh">
       <h2 id="fresh">{t(lang, "fresh.title")}</h2>

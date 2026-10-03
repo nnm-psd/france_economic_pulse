@@ -2,7 +2,7 @@
 // Specs follow the dataviz skill: 2px lines, >=8px end dots with a surface ring, hairline grid,
 // text in ink tokens (never series colours), crosshair tooltip, table view in the page.
 import * as Plot from "@observablehq/plot";
-import { month, num, pct, type Lang } from "../i18n";
+import { month, num, pct, quarter, type Lang } from "../i18n";
 
 type Point = { m: string; v: number };
 type Spec =
@@ -14,6 +14,7 @@ type Spec =
   | { kind: "rolling"; lang: Lang; rows: { m: string; ridge: number; ar: number }[]; labels: Record<string, string> }
   | { kind: "hist"; lang: Lang; errors: number[]; labels: Record<string, string> }
   | { kind: "weights"; lang: Lang; rows: { m: string; w: number[] }[]; names: string[] }
+  | { kind: "quarterly"; lang: Lang; rows: { q: string; actual: number | null; best: number | null; naive: number | null }[]; labels: Record<string, string> }
   | { kind: "evolution"; lang: Lang; days: { made: string; g: number; lo: number; hi: number }[]; actual?: { released: string; v: number }; labels: Record<string, string> };
 
 const date = (m: string) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1, 1));
@@ -244,7 +245,25 @@ function evolution(s: Extract<Spec, { kind: "evolution" }>, width: number) {
   });
 }
 
-const draw = { level, line, backtest, contrib, scatter, rolling, hist, weights, evolution } as Record<Spec["kind"], (s: any, w: number) => Element>;
+// Quarterly GDP: published growth (blue), the best experimental model (dashed orange) and the naive forecast (aqua).
+function quarterly(s: Extract<Spec, { kind: "quarterly" }>, width: number) {
+  const rows = s.rows.map((r) => ({ x: new Date(Date.UTC(+r.q.slice(0, 4), (+r.q.slice(5) - 1) * 3, 1)), ...r }));
+  const f = (v: number | null) => (v === null ? "—" : pct(s.lang, v, 2));
+  return frame(s.lang, width, 280, (v) => pct(s.lang, v, 1), [
+    Plot.ruleY([0], { stroke: css("--baseline") }),
+    Plot.lineY(rows, { x: "x", y: "naive", stroke: css("--series-3"), strokeWidth: 2 }),
+    Plot.lineY(rows, { x: "x", y: "best", stroke: css("--series-2"), strokeWidth: 2, strokeDasharray: "5,4" }),
+    Plot.lineY(rows, { x: "x", y: "actual", stroke: css("--series-1"), strokeWidth: 2 }),
+    Plot.dot(rows, { x: "x", y: "actual", r: 3, fill: css("--series-1") }),
+    Plot.ruleX(rows, Plot.pointerX({ x: "x", stroke: css("--baseline") })),
+    Plot.tip(rows, Plot.pointerX({
+      x: "x", y: "actual", fill: css("--page"), stroke: css("--rule"),
+      title: (r) => `${quarter(s.lang, r.q, "short")}\n${s.labels.actual}${colon(s.lang)}${f(r.actual)}\n${s.labels.best}${colon(s.lang)}${f(r.best)}\n${s.labels.naive}${colon(s.lang)}${f(r.naive)}`,
+    })),
+  ], true);
+}
+
+const draw = { level, line, backtest, contrib, scatter, rolling, hist, weights, evolution, quarterly } as Record<Spec["kind"], (s: any, w: number) => Element>;
 
 function render(fig: HTMLElement, width: number) {
   tokens = getComputedStyle(document.documentElement);

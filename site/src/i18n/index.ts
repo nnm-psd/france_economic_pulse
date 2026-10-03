@@ -26,6 +26,13 @@ export function month(lang: Lang, m: string, style: "long" | "short" = "long"): 
   return new Intl.DateTimeFormat(locale(lang), { month: style, year: "numeric", timeZone: "UTC" }).format(Date.UTC(y, mo - 1, 1));
 }
 
+/** "2026Q3" -> "3e trimestre 2026" / "Q3 2026" (style "short": "T3 2026" / "Q3 2026") */
+export function quarter(lang: Lang, q: string, style: "long" | "short" = "long"): string {
+  const [y, n] = q.split("Q");
+  if (style === "short") return t(lang, "q.short", { n, y });
+  return t(lang, n === "1" ? "q.first" : "q.long", { n, y });
+}
+
 /** "2026-10-03" -> "3 octobre 2026" / "3 October 2026" */
 export function day(lang: Lang, iso: string): string {
   const [y, mo, d] = iso.split("-").map(Number);
@@ -56,7 +63,9 @@ export const routes = {
   indicators: { fr: "indicateurs/", en: "en/indicators/" },
   model: { fr: "modele/", en: "en/model/" },
   methodology: { fr: "methodologie/", en: "en/methodology/" },
+  gdp: { fr: "pib/", en: "en/gdp/" }, // optional experimental page: not in the main menu (D33)
 } as const;
+export const NAV: Page[] = ["overview", "indicators", "model", "methodology"];
 export type Page = keyof typeof routes;
 
 export function url(path: string): string {

@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import store
+from . import gdp_model, store
 from .features import corrected_electricity, daily_electricity, load_raw, monthly_features
 from .model import COVID, MODELS, diagnostics, explain, nowcast, scorecard
 from .sources import bodacc, ecb, insee, rte, weather
@@ -135,6 +135,22 @@ def last_change(log: pd.DataFrame, month: str) -> dict:
     return {"m": month, "now": float(since["g"]), "before": None if before is None else float(before), "since": since["made"].date().isoformat()}
 
 
+def gdp_experimental(raw, rows: list[dict]) -> dict:
+    """Experimental GDP page (D33): every model's estimate for the open quarter, and the backtest behind it.
+    Not a published nowcast: no model beats AR(1) (D31, D32)."""
+    estimated = {pd.Period(r["m"], "M"): r["level"] for r in rows}  # industrial production filled by the monthly nowcast
+    preds, _ = gdp_model.nowcast(raw, estimated)
+    bt = pd.read_parquet(store.DATA / "model" / "gdp_backtest.parquet")
+    r = lambda v: round(float(v), 3)
+    return {
+        "pending": [{"q": str(q), "release": gdp_model.expected_release(q), "preds": {k: r(v) for k, v in p.items()}}
+                    for q, p in preds.iterrows()],
+        "scores": gdp_model.scores(bt),
+        "covid": [str(gdp_model.COVID[0]), str(gdp_model.COVID[-1])],
+        "backtest": [{"q": str(q), **{k: r(v) for k, v in row.items()}} for q, row in bt.iterrows()],
+    }
+
+
 def build() -> dict:
     raw = load_raw()
     f = monthly_features(raw, fit_until=pd.Timestamp.now())
@@ -201,6 +217,7 @@ def build() -> dict:
             for period, table in (("normal", scorecard(bt).loc["excl. Mar-Jul 2020"]), ("all", scorecard(bt).loc["all months"]))
         },
         "diagnostics": diagnostics(bt),
+        "gdp": gdp_experimental(raw, rows),
         "experiments": json.loads((store.DATA / "model" / "experiments.json").read_text(encoding="utf-8")),  # D24
         "indicators": {
             "electricity": points(elec[SINCE:], 2),
@@ -229,6 +246,7 @@ def write_csv(site: dict) -> None:
         "spread": series(site["indicators"]["spread"], "fr_de_10y_spread_bp"),
         "backtest": pd.DataFrame(site["backtest"]).rename(columns={"m": "month", "actual": "actual_pct", "ridge": "estimate_pct",
                                                                    "ar": "naive_pct", "gbm": "gbm_pct"}),
+        "gdp_backtest": pd.DataFrame(site["gdp"]["backtest"]).rename(columns={"q": "quarter"}),
         "nowcasts": pd.read_parquet(LOG)[["made", "month", "g", "lo", "hi"]].rename(
             columns={"g": "estimate_pct", "lo": "range80_low", "hi": "range80_high"}),
     }

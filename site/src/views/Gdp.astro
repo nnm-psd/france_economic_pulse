@@ -1,0 +1,114 @@
+---
+// Optional experimental page (D33): quarterly GDP models that don't beat a naive forecast, shown for transparency.
+import Base from "../layouts/Base.astro";
+import Chart from "../components/Chart.astro";
+import data from "../data/site.json";
+import { t, day, num, pct, quarter, type Lang } from "../i18n";
+
+const { lang } = Astro.props as { lang: Lang };
+const g = data.gdp;
+const order = ["ar", "mean", "bridge", "services", "services_conso", "ridge"] as const;
+const open = g.pending[0];
+const preds = open ? Object.values(open.preds) : [];
+const s = g.scores;
+const covid = (q: string) => q >= g.covid[0] && q <= g.covid[1];
+// Excluded quarters stay in as gaps (null), so the lines break instead of bridging 2019 to 2022.
+const lines = g.backtest.map((r) => (covid(r.q) ? { q: r.q, actual: null, best: null, naive: null } : { q: r.q, actual: r.actual, best: r.services_conso, naive: r.ar }));
+const labels = { actual: t(lang, "gdp.actual"), best: t(lang, "gdp.best"), naive: t(lang, "gdp.naive") };
+---
+
+<Base lang={lang} page="gdp" title={t(lang, "gdp.title")} description={t(lang, "gdp.description")}>
+  <article class="stack" style="--space: 2.5rem">
+    <header class="stack">
+      <h1>{t(lang, "gdp.title")}</h1>
+      <p class="experimental" role="note"><strong>{t(lang, "gdp.warning")}</strong></p>
+      {open && (
+        <p class="lede">
+          {t(lang, "gdp.lede", {
+            quarter: quarter(lang, open.q),
+            lo: pct(lang, Math.min(...preds), 2),
+            hi: pct(lang, Math.max(...preds), 2),
+            date: day(lang, open.release),
+          })}
+        </p>
+      )}
+    </header>
+
+    <div class="table-scroll">
+      <table class="wide">
+        <caption>{t(lang, "gdp.table_caption", { quarter: open ? quarter(lang, open.q) : "" })}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{t(lang, "gdp.col_model")}</th>
+            {open && <th scope="col" class="num">{t(lang, "gdp.col_estimate")}</th>}
+            <th scope="col" class="num">{t(lang, "gdp.col_rmse")}</th>
+            <th scope="col" class="num">{t(lang, "method.col_hit")}</th>
+            <th scope="col" class="num">{t(lang, "gdp.col_p")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {order.map((m) => (
+            <tr class:list={{ benchmark: m === "ar" }}>
+              <th scope="row">{t(lang, `gdp.model.${m}`)}</th>
+              {open && <td class="num">{pct(lang, open.preds[m], 2)}</td>}
+              <td class="num">{num(lang, s.rmse[m], 3)}</td>
+              <td class="num">{pct(lang, s.hit[m] * 100, 0, false)}</td>
+              <td class="num">{m in s.dm_p ? num(lang, s.dm_p[m as keyof typeof s.dm_p], 2) : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="small">{t(lang, "gdp.table_note", { from: quarter(lang, s.from, "short"), to: quarter(lang, s.to, "short"), n: s.n })}</p>
+
+    <Chart
+      lang={lang}
+      spec={{ kind: "quarterly", lang, rows: lines, labels }}
+      title={t(lang, "gdp.chart_title")}
+      description={t(lang, "gdp.chart_desc")}
+      head={[t(lang, "data.quarter"), labels.actual, labels.best, labels.naive]}
+      rows={[...g.backtest].reverse().map((r) => [quarter(lang, r.q, "short"), pct(lang, r.actual, 2), pct(lang, r.services_conso, 2), pct(lang, r.ar, 2)])}
+      height={280}
+      csv="gdp_backtest.csv"
+    >
+      <ul slot="legend" class="legend small">
+        <li><span class="key"></span>{labels.actual}</li>
+        <li><span class="key key-estimate"></span>{labels.best}</li>
+        <li><span class="key key-naive"></span>{labels.naive}</li>
+      </ul>
+    </Chart>
+
+    <section class="stack prose">
+      <h2>{t(lang, "gdp.how_title")}</h2>
+      <p>{t(lang, "gdp.how")}</p>
+      <h2>{t(lang, "gdp.why_title")}</h2>
+      <p>{t(lang, "gdp.why")}</p>
+      <h2>{t(lang, "gdp.next_title")}</h2>
+      <p>{t(lang, "gdp.next")}</p>
+    </section>
+  </article>
+</Base>
+
+<style>
+  .experimental {
+    max-width: none;
+    padding: 0.75rem 1rem;
+    border-left: 3px solid var(--late);
+    background: color-mix(in srgb, var(--late) 8%, transparent);
+  }
+  .table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  table.wide {
+    max-width: 52rem;
+  }
+  tr.benchmark th,
+  tr.benchmark td {
+    font-weight: 600;
+  }
+  tbody th {
+    font-weight: 400;
+    color: var(--ink);
+  }
+</style>
