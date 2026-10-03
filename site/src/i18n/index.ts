@@ -54,6 +54,7 @@ export function num(lang: Lang, v: number, digits = 0): string {
 export const routes = {
   overview: { fr: "", en: "en/" },
   indicators: { fr: "indicateurs/", en: "en/indicators/" },
+  model: { fr: "modele/", en: "en/model/" },
   methodology: { fr: "methodologie/", en: "en/methodology/" },
 } as const;
 export type Page = keyof typeof routes;

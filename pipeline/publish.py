@@ -14,7 +14,7 @@ import pandas as pd
 
 from . import store
 from .features import corrected_electricity, daily_electricity, load_raw, monthly_features
-from .model import COVID, nowcast, scorecard
+from .model import COVID, explain, nowcast, scorecard
 from .sources import bodacc, ecb, insee, rte, weather
 
 SITE = Path(__file__).resolve().parent.parent / "site"
@@ -81,6 +81,7 @@ def build() -> dict:
             "insolvencies": points(openings[complete][SINCE:], 0),
             "spread": points(((f["spread_lag1"].shift(-1))[SINCE:]), 0),
         },
+        "model": explain(raw),
         "sources": [
             {"id": name, "latest": store.load(name)["date"].max().date().isoformat(), "max_age_days": s.MAX_AGE.days}
             for name, s in sources.items()

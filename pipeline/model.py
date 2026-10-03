@@ -18,9 +18,10 @@ from .store import DATA
 START = pd.Period("2016-01", "M")  # first backtest month: ~4 years of training data before it
 COVID = pd.period_range("2020-03", "2020-07", freq="M")
 
+RIDGE_ALPHAS = np.logspace(-2, 3, 30)  # ridge penalties tried; RidgeCV picks one by leave-one-out error
 MODELS = {
     "ar": (["y_lag2"], LinearRegression),
-    "ridge": (FEATURES, lambda: make_pipeline(StandardScaler(), RidgeCV(alphas=np.logspace(-2, 3, 30)))),
+    "ridge": (FEATURES, lambda: make_pipeline(StandardScaler(), RidgeCV(alphas=RIDGE_ALPHAS))),
     "gbm": (FEATURES, lambda: HistGradientBoostingRegressor(max_depth=3, learning_rate=0.05, max_iter=200, random_state=0)),
 }
 
@@ -70,12 +71,49 @@ def scorecard(bt: pd.DataFrame) -> pd.DataFrame:
     return pd.concat({"all months": score(bt), "excl. Mar-Jul 2020": score(bt.drop(COVID, errors="ignore"))})
 
 
+def final_sets(raw) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Features, training rows (everything published, COVID excluded) and months INSEE hasn't published yet."""
+    f = monthly_features(raw, fit_until=pd.Timestamp.now())
+    return f, f.drop(COVID).dropna(subset=["y", *FEATURES]), f[f["y"].isna()].dropna(subset=FEATURES)
+
+
 def nowcast(raw) -> pd.DataFrame:
     """Models refitted on everything published, applied to months with features but no IPI yet."""
-    f = monthly_features(raw, fit_until=pd.Timestamp.now())
-    pending = f[f["y"].isna()].dropna(subset=FEATURES)
-    train = f.drop(COVID).dropna(subset=["y", *FEATURES])
+    f, train, pending = final_sets(raw)
     return pd.DataFrame(predict(f, train, pending), index=pending.index)
+
+
+def explain(raw) -> dict:
+    """The published ridge model taken apart: coefficients, and each pending month's calculation step by step.
+
+    prediction = intercept + sum_j coef_j * (x_j - mean_j) / scale_j. The assert proves the
+    decomposition shown on the website is exactly what the model computes.
+    """
+    f, train, pending = final_sets(raw)
+    model = MODELS["ridge"][1]().fit(train[FEATURES], train["y"])
+    scaler, ridge = model[0], model[-1]
+    z = (pending[FEATURES] - scaler.mean_) / scaler.scale_
+    contrib = z * ridge.coef_
+    pred = ridge.intercept_ + contrib.sum(axis=1)
+    assert np.allclose(pred, model.predict(pending[FEATURES])), "decomposition differs from the model"
+    ar = LinearRegression().fit(train[["y_lag2"]], train["y"])
+    return {
+        "alpha": float(ridge.alpha_),
+        "alphas": [float(RIDGE_ALPHAS[0]), float(RIDGE_ALPHAS[-1]), len(RIDGE_ALPHAS)],
+        "intercept": float(ridge.intercept_),
+        "train": {"n": len(train), "from": str(train.index.min()), "to": str(train.index.max())},
+        "features": [
+            {"name": c, "mean": float(m), "scale": float(s), "coef": float(w)}
+            for c, m, s, w in zip(FEATURES, scaler.mean_, scaler.scale_, ridge.coef_)
+        ],
+        "months": [
+            {"m": str(t), "x": pending.loc[t, FEATURES].astype(float).tolist(), "z": z.loc[t].tolist(),
+             "contrib": contrib.loc[t].tolist(), "pred": float(pred[t])}
+            for t in pending.index
+        ],
+        "ar": {"a": float(ar.intercept_), "b": float(ar.coef_[0])},
+        "weather": f.attrs["weather"],
+    }
 
 
 def main() -> None:

@@ -8,7 +8,8 @@ type Point = { m: string; v: number };
 type Spec =
   | { kind: "level"; lang: Lang; ipi: Point[]; nowcast: { m: string; level: number; level_lo: number; level_hi: number; g: number; lo: number; hi: number }[]; labels: Record<string, string> }
   | { kind: "line"; lang: Lang; series: Point[]; digits: number; reference?: number }
-  | { kind: "backtest"; lang: Lang; rows: { m: string; actual: number; ridge: number }[]; labels: Record<string, string> };
+  | { kind: "backtest"; lang: Lang; rows: { m: string; actual: number; ridge: number }[]; labels: Record<string, string> }
+  | { kind: "contrib"; lang: Lang; rows: { label: string; v: number }[] };
 
 const date = (m: string) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1, 1));
 const iso = (d: Date) => d.toISOString().slice(0, 7);
@@ -89,7 +90,36 @@ function backtest(s: Extract<Spec, { kind: "backtest" }>, width: number) {
   ]);
 }
 
-const draw = { level, line, backtest } as Record<Spec["kind"], (s: any, w: number) => Element>;
+// Horizontal bars from zero, largest effect first: blue pushes the estimate up, red pushes it down.
+function contrib(s: Extract<Spec, { kind: "contrib" }>, width: number) {
+  const rows = [...s.rows].sort((a, b) => Math.abs(b.v) - Math.abs(a.v));
+  const fmt = (v: number) => new Intl.NumberFormat(s.lang === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: 3, maximumFractionDigits: 3, signDisplay: "exceptZero" }).format(v);
+  const left = Math.min(240, Math.round(width * 0.42));
+  const extent = Math.max(...rows.map((r) => Math.abs(r.v))) * 1.25;
+  const label = (sign: 1 | -1) =>
+    Plot.text(rows.filter((r) => Math.sign(r.v) === sign || (sign === 1 && r.v === 0)), {
+      x: "v", y: "label", text: (d) => fmt(d.v), dx: 6 * sign, textAnchor: sign === 1 ? "start" : "end", fill: css("--ink"),
+    });
+  return Plot.plot({
+    width,
+    height: rows.length * 44 + 30,
+    marginLeft: left,
+    marginRight: 48,
+    style: { fontFamily: css("--font"), fontSize: "13px", color: css("--muted"), background: "transparent", overflow: "visible" },
+    x: { domain: [-extent, extent], grid: true, label: null, ticks: 5, tickFormat: (v: number) => num(s.lang, v, 1) },
+    y: { domain: rows.map((r) => r.label), label: null, axis: null },
+    marks: [
+      Plot.axisY({ lineWidth: (left - 12) / 7.5, tickSize: 0, fill: css("--ink-2") }),
+      Plot.ruleX([0], { stroke: css("--baseline") }),
+      Plot.barX(rows, { x: "v", y: "label", fill: (d) => (d.v >= 0 ? css("--up") : css("--down")), insetTop: 11, insetBottom: 11, rx: 2 }),
+      label(1),
+      label(-1),
+      Plot.tip(rows, Plot.pointerY({ x: "v", y: "label", title: (d) => `${d.label}\n${fmt(d.v)}`, fill: css("--page"), stroke: css("--rule") })),
+    ],
+  });
+}
+
+const draw = { level, line, backtest, contrib } as Record<Spec["kind"], (s: any, w: number) => Element>;
 
 function render(fig: HTMLElement, width: number) {
   tokens = getComputedStyle(document.documentElement);

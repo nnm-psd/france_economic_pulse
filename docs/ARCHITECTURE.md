@@ -199,6 +199,7 @@ Over all months (COVID included), errors are dominated by 2020 and no model is m
 1. **Overview:** the latest nowcast compared with the last official figure, and a freshness date for each source.
 2. **Indicators:** one chart per feature, with source and update date.
 3. **Methodology and track record:** the model, its error history, the data vintages warning (D8), and attribution.
+4. **Model** (`/modele/`, `/en/model/`, added 2026-10-03): every formula with today's coefficients, the full calculation of the latest nowcast, and the code that runs. See D23.
 
 Each page exists in French and English (D19).
 
@@ -218,6 +219,23 @@ Each page exists in French and English (D19).
 - **Type:** IBM Plex Sans Condensed 600 for headings, IBM Plex Sans for text: an engineering face for an industry subject, and the condensed width absorbs longer French headings. Fonts are self-hosted via Fontsource, not Google Fonts, so no visitor data goes to a third party (German courts have fined sites under GDPR for loading Google Fonts). The two above-the-fold faces are preloaded.
 - **Colour:** "bleu de travail" (workwear blue) ink `#1d2b44` on a cool off-white `#f5f7fa`; dark mode `#eef2f7` on `#141b26`, following the OS setting. The only loud colour is the estimate's orange.
 - **Layout:** left-aligned single column, text held to ~70 characters, charts full width. Vertical spacing uses flex `gap` with a non-inherited `--space` custom property, so nested sections don't pick up their parent's spacing.
+
+### D23. The model page: formulas, live coefficients, worked calculation, real code
+
+- **What it shows, in 8 steps:**
+  1. the target, y_t = 100·ln(IPI_t / IPI_{t−1});
+  2. the weather regression, with the fitted heating and cooling coefficients;
+  3. the eight inputs, with their symbols, publication lags, means and standard deviations;
+  4. ridge regression: standardisation, prediction, penalised loss and the chosen α;
+  5. the latest nowcast rebuilt input by input (value → z-score → × weight → contribution), with a bar chart of contributions; the previous pending month sits behind a disclosure;
+  6. the 80% range;
+  7. the AR benchmark with its fitted coefficients, RMSE and the Diebold–Mariano test;
+  8. code excerpts.
+- **Numbers come from the model that ran:** `model.explain()` refits the published ridge model and returns its intercept, α, each input's mean, scale and weight, and each pending month's values, z-scores and contributions. `publish` writes them to `site.json` under `model`. The function **asserts** that intercept + Σ contributions equals the model's own prediction, so the breakdown on the page can't drift from the published figure. The weather coefficients come from `corrected_electricity()` through `Series.attrs`.
+- **Formulas:** TeX rendered at build time by KaTeX to **native MathML** (`output: "mathml"`): no client JavaScript, no math fonts, and screen readers read it. Numbers inside formulas use the page language's decimal separator. A minus is wrapped in braces so it reads as a sign, not a subtraction.
+- **Code excerpts are read from the Python files at build time** (`site/src/model.ts` imports `pipeline/*.py?raw` and extracts a named top-level block), so the page always shows the code that actually ran. The build fails if a named function disappears. They are highlighted with Shiki's GitHub **high-contrast** themes: the standard GitHub light theme failed WCAG contrast (orange parameters at 3.48:1).
+- **Contribution chart:** horizontal bars from zero, largest first, blue for "pushes up" and red for "pushes down" (the `dataviz` diverging pair, validated in both modes), with signed value labels and the full table below.
+- **Audit (2026-10-03):** Performance 97, Accessibility 100, Best Practices 100, SEO 100 on both language versions.
 
 ## 7. Automation and hosting
 
@@ -255,7 +273,7 @@ france_economic_pulse/
 │   ├── raw/<source>/<YYYY-MM>.parquet
 │   └── snapshots/ipi/<fetch-date>.parquet
 ├── site/                       ← Astro project: src/views (pages shared by both languages), src/pages (thin FR/EN routes),
-│                                 src/i18n (fr.json, en.json, formatters), src/scripts/charts.ts, src/data/site.json
+│                                 src/i18n (fr.json, en.json, formatters), src/scripts/charts.ts, src/model.ts (formulas, code excerpts), src/data/site.json
 ├── .github/workflows/update.yml
 └── pyproject.toml / uv.lock
 ```

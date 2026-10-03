@@ -56,7 +56,9 @@ def corrected_electricity(daily: pd.Series, temp: pd.Series, fit_until: pd.Times
     beta, *_ = np.linalg.lstsq(X[fit].to_numpy(), df["y"][fit].to_numpy(), rcond=None)
     resid = df["y"] - X.to_numpy() @ beta
     month = resid.groupby(idx.to_period("M"))
-    return month.mean()[month.count() >= MIN_DAYS]
+    out = month.mean()[month.count() >= MIN_DAYS]
+    out.attrs["weather"] = {"hdd": float(beta[1]), "cdd": float(beta[2]), "days": int(fit.sum())}  # shown on the model page
+    return out
 
 
 def monthly_features(raw: dict[str, pd.DataFrame], fit_until: pd.Timestamp) -> pd.DataFrame:
@@ -87,4 +89,5 @@ def monthly_features(raw: dict[str, pd.DataFrame], fit_until: pd.Timestamp) -> p
     f["insolv_yoy"] = 100 * np.log(on(openings)).diff(12)
     f["spread_lag1"] = spread.shift(1)
     f["spread_chg_lag1"] = spread.diff().shift(1)
+    f.attrs["weather"] = elec.attrs["weather"]
     return f

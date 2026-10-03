@@ -1,0 +1,243 @@
+---
+import { Code } from "astro:components";
+import Base from "../layouts/Base.astro";
+import Chart from "../components/Chart.astro";
+import Formula from "../components/Formula.astro";
+import data from "../data/site.json";
+import { FEATURE_INFO, EXCERPTS, texNum } from "../model";
+import { t, month, day, num, pct, pageUrl, type Lang } from "../i18n";
+
+const { lang } = Astro.props as { lang: Lang };
+const m = data.model;
+const tr = data.track;
+const n = (v: number, d = 3) => num(lang, v, d);
+const signed = (v: number, d = 3) =>
+  new Intl.NumberFormat(lang === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: d, maximumFractionDigits: d, signDisplay: "exceptZero" }).format(v);
+
+// Months shown in step 5: the latest first, the earlier one behind a disclosure.
+const months = [...m.months].reverse();
+const rowsFor = (mo: (typeof m.months)[number]) =>
+  m.features.map((f, j) => ({ name: f.name, label: t(lang, `feat.${f.name}`), x: mo.x[j], z: mo.z[j], w: f.coef, c: mo.contrib[j] }));
+
+// Formulas (language-neutral TeX).
+const F = {
+  target: String.raw`y_t = 100 \,\ln\frac{\mathrm{IPI}_t}{\mathrm{IPI}_{t-1}}`,
+  weather: String.raw`\ln\, C_d = \beta_0 + \beta_1\,\mathrm{HDD}_d + \beta_2\,\mathrm{CDD}_d + \gamma_{w(d)} + \delta_{m(d)} + \varepsilon_d`,
+  dd: String.raw`\mathrm{HDD}_d = \max(0,\ 15 - T_d), \qquad \mathrm{CDD}_d = \max(0,\ T_d - 20)`,
+  fit: String.raw`\hat\beta_1 = ${texNum(lang, m.weather.hdd, 4)}, \qquad \hat\beta_2 = ${texNum(lang, m.weather.cdd, 4)}`,
+  elec: String.raw`e_t = \frac{1}{|D_t|}\sum_{d \in D_t} \hat\varepsilon_d, \qquad \Delta e_t = 100\,(e_t - e_{t-1})`,
+  others: String.raw`\Delta_{12}\, n_t = 100 \,\ln\frac{N_t}{N_{t-12}}, \qquad s_t = 100\,\big(r^{\mathrm{FR}}_t - r^{\mathrm{DE}}_t\big)`,
+  z: String.raw`z_{j,t} = \frac{x_{j,t} - \mu_j}{\sigma_j}`,
+  pred: String.raw`\hat y_t = b_0 + \sum_{j=1}^{8} w_j\, z_{j,t}`,
+  loss: String.raw`\min_{b_0,\, w}\ \sum_{t \in \mathcal{T}} \big(y_t - \hat y_t\big)^2 + \alpha \sum_{j=1}^{8} w_j^2`,
+  band: String.raw`\big[\,\hat y_t - q_{80},\ \hat y_t + q_{80}\,\big], \qquad q_{80} = Q_{0.8}\big(\,|y_t - \hat y_t|\,\big) = ${texNum(lang, tr.q80, 2)}`,
+  ar: String.raw`\hat y^{\,\mathrm{AR}}_t = a + b\, y_{t-2} = ${texNum(lang, m.ar.a, 3)} ${m.ar.b < 0 ? "-" : "+"} ${texNum(lang, Math.abs(m.ar.b), 3)}\, y_{t-2}`,
+  rmse: String.raw`\mathrm{RMSE} = \sqrt{\frac{1}{n}\sum_{t} \big(y_t - \hat y_t\big)^2}`,
+  dm: String.raw`d_t = \big(e^{\mathrm{AR}}_t\big)^2 - e_t^{\,2}, \qquad \mathrm{DM} = \frac{\bar d}{s_d / \sqrt{n}}, \qquad p = 1 - \Phi(\mathrm{DM})`,
+};
+const sum = (mo: (typeof m.months)[number]) =>
+  String.raw`\hat y = ${texNum(lang, m.intercept, 3)} ` +
+  mo.contrib.map((c) => `${c < 0 ? "-" : "+"} ${texNum(lang, Math.abs(c), 3)}`).join(" ") +
+  ` = ${texNum(lang, mo.pred, 3)}`;
+---
+
+<Base lang={lang} page="model" title={t(lang, "model.title")} description={t(lang, "model.description")}>
+  <article class="stack prose model" style="--space: 1.25rem">
+    <header class="stack">
+      <h1>{t(lang, "model.title")}</h1>
+      <p class="lede">
+        {t(lang, "model.intro", { date: day(lang, data.generated), n: m.train.n, from: month(lang, m.train.from), to: month(lang, m.train.to) })}
+      </p>
+    </header>
+
+    <h2>{t(lang, "model.s1")}</h2>
+    <p>{t(lang, "model.s1.text")}</p>
+    <Formula block tex={F.target} />
+
+    <h2>{t(lang, "model.s2")}</h2>
+    <p>{t(lang, "model.s2.text", { days: num(lang, m.weather.days) })}</p>
+    <Formula block tex={F.weather} />
+    <p>{t(lang, "model.s2.dd")}</p>
+    <Formula block tex={F.dd} />
+    <Formula block tex={F.fit} />
+    <p>
+      {t(lang, "model.s2.fit", {
+        hdd: pct(lang, (Math.exp(m.weather.hdd) - 1) * 100, 1, false),
+        cdd: pct(lang, (Math.exp(m.weather.cdd) - 1) * 100, 1, false),
+      })}
+    </p>
+    <Formula block tex={F.elec} />
+
+    <h2>{t(lang, "model.s3")}</h2>
+    <p>{t(lang, "model.s3.text")}</p>
+    <Formula block tex={F.others} />
+    <div class="table-scroll">
+      <table class="wide">
+        <thead>
+          <tr>
+            <th scope="col">{t(lang, "model.col_symbol")}</th>
+            <th scope="col">{t(lang, "model.col_feature")}</th>
+            <th scope="col">{t(lang, "model.col_known")}</th>
+            <th scope="col" class="num">{t(lang, "model.col_mean")}</th>
+            <th scope="col" class="num">{t(lang, "model.col_scale")}</th>
+            <th scope="col" class="num">{t(lang, "model.col_weight")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {m.features.map((f) => (
+            <tr>
+              <td><Formula tex={FEATURE_INFO[f.name].tex} /></td>
+              <th scope="row">{t(lang, `feat.${f.name}`)}</th>
+              <td><Formula tex={FEATURE_INFO[f.name].known} /></td>
+              <td class="num">{n(f.mean, 2)}</td>
+              <td class="num">{n(f.scale, 2)}</td>
+              <td class="num">{signed(f.coef)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <h2>{t(lang, "model.s4")}</h2>
+    <p>{t(lang, "model.s4.text")}</p>
+    <Formula block tex={F.z} />
+    <p>{t(lang, "model.s4.pred")}</p>
+    <Formula block tex={F.pred} />
+    <p>{t(lang, "model.s4.loss")}</p>
+    <Formula block tex={F.loss} />
+    <p>
+      {t(lang, "model.s4.alpha", {
+        count: m.alphas[2],
+        lo: num(lang, m.alphas[0], 2),
+        hi: num(lang, m.alphas[1], 0),
+        alpha: num(lang, m.alpha, 1),
+        b0: signed(m.intercept),
+      })}
+    </p>
+
+    {months.map((mo, i) => {
+      const rows = rowsFor(mo);
+      const body = (
+        <div class="stack" style="--space: 1.25rem">
+          <div class="table-scroll">
+            <table class="wide">
+              <thead>
+                <tr>
+                  <th scope="col">{t(lang, "model.col_feature")}</th>
+                  <th scope="col" class="num">{t(lang, "model.col_value")}</th>
+                  <th scope="col" class="num">{t(lang, "model.col_z")}</th>
+                  <th scope="col" class="num">{t(lang, "model.col_weight")}</th>
+                  <th scope="col" class="num">{t(lang, "model.col_contrib")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr>
+                    <th scope="row">{r.label}</th>
+                    <td class="num">{n(r.x, 2)}</td>
+                    <td class="num">{signed(r.z, 2)}</td>
+                    <td class="num">{signed(r.w)}</td>
+                    <td class="num">{signed(r.c)}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <th scope="row">{t(lang, "model.intercept")}</th>
+                  <td /><td /><td />
+                  <td class="num">{signed(m.intercept)}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row">{t(lang, "model.total")}</th>
+                  <td /><td /><td />
+                  <td class="num total">{signed(mo.pred)} = {pct(lang, mo.pred, 2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <Formula block tex={sum(mo)} />
+        </div>
+      );
+      return i === 0 ? (
+        <section class="stack" style="--space: 1.25rem" aria-labelledby="worked">
+          <h2 id="worked">{t(lang, "model.s5", { month: month(lang, mo.m) })}</h2>
+          <p>{t(lang, "model.s5.text")}</p>
+          <Chart
+            lang={lang}
+            level={3}
+            spec={{ kind: "contrib", lang, rows: rows.map((r) => ({ label: r.label, v: r.c })) }}
+            title={t(lang, "model.chart_title", { month: month(lang, mo.m) })}
+            description={t(lang, "model.chart_desc")}
+            head={[t(lang, "model.col_feature"), t(lang, "model.col_contrib")]}
+            rows={rows.map((r) => [r.label, signed(r.c)])}
+            height={rows.length * 44 + 30}
+          >
+            <ul slot="legend" class="legend small">
+              <li><span class="key key-up"></span>{t(lang, "model.up")}</li>
+              <li><span class="key key-down"></span>{t(lang, "model.down")}</li>
+            </ul>
+          </Chart>
+          {body}
+        </section>
+      ) : (
+        <details>
+          <summary>{t(lang, "model.other_month", { month: month(lang, mo.m) })}</summary>
+          {body}
+        </details>
+      );
+    })}
+
+    <h2>{t(lang, "model.s6")}</h2>
+    <p>{t(lang, "model.s6.text", { q: num(lang, tr.q80, 2) })}</p>
+    <Formula block tex={F.band} />
+    <p>{t(lang, "model.s6.level")}</p>
+
+    <h2>{t(lang, "model.s7")}</h2>
+    <p>{t(lang, "model.s7.text")}</p>
+    <Formula block tex={F.ar} />
+    <p>{t(lang, "model.s7.eval")}</p>
+    <Formula block tex={F.rmse} />
+    <Formula block tex={F.dm} />
+    <p>
+      {t(lang, "model.s7.result", { rmse: num(lang, tr.rmse, 2), rmse_ar: num(lang, tr.rmse_ar, 2), p: num(lang, tr.dm_p, 2) })}
+    </p>
+    <p><a href={pageUrl("methodology", lang)}>{t(lang, "overview.track_link")}</a></p>
+
+    <h2>{t(lang, "model.s8")}</h2>
+    <p>{t(lang, "model.s8.text")}</p>
+    {(Object.keys(EXCERPTS) as (keyof typeof EXCERPTS)[]).map((key) => (
+      <figure class="stack code" style="--space: 0.5rem">
+        <figcaption>
+          <strong>{t(lang, `model.code.${key}`)}</strong>{" "}
+          <a href={EXCERPTS[key].url} class="small">{t(lang, "model.code_link", { file: EXCERPTS[key].file })}</a>
+        </figcaption>
+        <Code code={EXCERPTS[key].code} lang="python" themes={{ light: "github-light-high-contrast", dark: "github-dark-high-contrast" }} />
+      </figure>
+    ))}
+  </article>
+</Base>
+
+<style>
+  .model :global(h2) {
+    margin-top: 2rem;
+  }
+  .table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  table.wide {
+    max-width: 58rem;
+  }
+  .total {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  tbody th {
+    font-weight: 400;
+    color: var(--ink);
+  }
+  .code {
+    margin: 0;
+    max-width: 58rem;
+  }
+</style>

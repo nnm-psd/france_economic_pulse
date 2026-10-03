@@ -17,6 +17,8 @@
   --series-1: #2a78d6; /* published figures */
   --series-2: #eb6834; /* estimate */
   --band: rgb(235 104 52 / 0.14);
+  --up: #2a78d6; /* contribution pushes the estimate up */
+  --down: #e34948;
   --late: #b3261e;
   --ok: #006300;
 
@@ -38,6 +40,8 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --band: rgb(217 89 38 / 0.22);
+    --up: #3987e5;
+    --down: #e66767;
     --late: #f08b84;
     --ok: #0ca30c;
   }
@@ -205,10 +209,39 @@ details[open] > summary {
 .key-estimate {
   border-top: 2px dashed var(--series-2);
 }
+.key-up,
+.key-down {
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 0;
+  border-radius: 2px;
+  background: var(--up);
+}
+.key-down {
+  background: var(--down);
+}
 .key-band {
   height: 0.7rem;
   border: 0;
   background: var(--band);
+}
+
+/* Code excerpts (Shiki dual theme: light by default, dark from the OS setting). */
+.astro-code {
+  font: 0.8125rem/1.55 ui-monospace, "Cascadia Code", Consolas, monospace;
+  padding: 1rem 1.25rem;
+  border-radius: 4px;
+  border: 1px solid var(--rule);
+  max-height: 30rem;
+  overflow: auto;
+  margin: 0;
+}
+@media (prefers-color-scheme: dark) {
+  .astro-code,
+  .astro-code span {
+    color: var(--shiki-dark) !important;
+    background-color: var(--shiki-dark-bg) !important;
+  }
 }
 
 /* Long-form text (methodology). */
@@ -218,12 +251,12 @@ details[open] > summary {
 .prose h2 {
   margin-top: 2.5rem;
 }
-.prose ul {
+.prose ul:not(.legend) {
   max-width: var(--measure);
   padding-left: 1.25rem;
   margin: 0;
 }
-.prose li + li {
+.prose ul:not(.legend) li + li {
   margin-top: 0.5rem;
 }
 
