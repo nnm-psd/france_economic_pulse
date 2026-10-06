@@ -1,38 +1,38 @@
 {
   "published": {
-    "rmse": 1.262,
-    "vs_ar": 0.9518,
-    "dm_p": 0.0707,
-    "hit": 0.5902,
-    "rmse_last24": 0.9447,
-    "ar_last24": 0.9286,
-    "sept_bias": -0.5675
+    "rmse": 1.2549,
+    "vs_ar": 0.9504,
+    "dm_p": 0.0653,
+    "hit": 0.6016,
+    "rmse_last24": 0.9379,
+    "ar_last24": 0.9257,
+    "sept_bias": -0.5464
   },
   "recent": {
-    "rmse": 1.2972,
-    "vs_ar": 0.9784,
-    "dm_p": 0.1819,
-    "hit": 0.5328,
-    "rmse_last24": 0.9171,
-    "ar_last24": 0.9286,
-    "sept_bias": -0.022
+    "rmse": 1.2921,
+    "vs_ar": 0.9786,
+    "dm_p": 0.1839,
+    "hit": 0.5203,
+    "rmse_last24": 0.9146,
+    "ar_last24": 0.9257,
+    "sept_bias": 0.002
   },
   "holidays": {
-    "rmse": 1.2666,
-    "vs_ar": 0.9552,
-    "dm_p": 0.0715,
-    "hit": 0.5574,
-    "rmse_last24": 0.9331,
-    "ar_last24": 0.9286,
-    "sept_bias": -0.5565
+    "rmse": 1.2608,
+    "vs_ar": 0.9548,
+    "dm_p": 0.0707,
+    "hit": 0.5691,
+    "rmse_last24": 0.9277,
+    "ar_last24": 0.9257,
+    "sept_bias": -0.5356
   },
   "both": {
-    "rmse": 1.3025,
-    "vs_ar": 0.9823,
-    "dm_p": 0.2056,
-    "hit": 0.5246,
-    "rmse_last24": 0.9188,
-    "ar_last24": 0.9286,
-    "sept_bias": 0.0044
+    "rmse": 1.2969,
+    "vs_ar": 0.9822,
+    "dm_p": 0.2047,
+    "hit": 0.5203,
+    "rmse_last24": 0.9179,
+    "ar_last24": 0.9257,
+    "sept_bias": 0.0285
   }
 }
